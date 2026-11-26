@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사업소득 항목별 업로드</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+:root{
+  --bg:#faf8f5; --card:#ffffff; --border:#efeae2; --text:#332f29; --sub:#766d62; --faint:#7a7166;
+  --accent:#7a8fa6; --sage:#7d9b8a; --rose:#a87878;
+  --sage-bg:#f1f6f3; --rose-bg:#f9f1f1; --sage-tag:#e2efe7;
+  --green:#3d6653; --red:#7a4040; --amber-bg:#f7f0e0; --amber-border:#ecdcb8; --amber-ink:#7a5600;
+  --soft:#f8f5f0; --shadow:0 2px 8px rgba(60,56,49,.06);
+}
+body{margin:0;font-family:'Malgun Gothic','맑은 고딕',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.55}
+@media screen{body{zoom:.95}}
+.wrap{max-width:1440px;margin:0 auto;padding:28px 24px 80px}
+header.app-header{margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header.app-header h1{font-size:20px;font-weight:700;margin:0 0 4px}
+header.app-header p{margin:0;color:var(--sub);font-size:12.5px}
+.rate-chip{display:inline-block;font-size:12px;background:var(--sage-bg);color:var(--green);border:1px solid var(--sage-tag);border-radius:20px;padding:3px 10px;font-weight:600;vertical-align:3px;margin-left:6px}
+.hidden{display:none!important}
+.hint{font-size:12.5px;color:var(--sub)}
+section.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow)}
+section.card h2{font-size:15px;font-weight:700;margin:0}
+.slip-title{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:12px;padding-bottom:10px}
+.grp-t{font-size:12.5px;font-weight:700;margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+.grp-t::before{content:"";width:4px;height:13px;border-radius:2px;background:var(--sage)}
+.num-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--text);color:#fff;font-size:12px;margin-right:6px}
+.strip{margin-bottom:12px}
+.strip .checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;margin-bottom:8px}
+.strip .checks .it{padding:10px 14px}
+.strip .checks .it b{font-size:20px}
+.strip .figs{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;color:var(--sub);padding:2px 2px}
+.strip .figs b{color:var(--text);font-size:14px}
+.strip .it{background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+.strip .it span{display:block;font-size:12px;color:var(--sub);font-weight:700}
+.strip .it b{display:block;font-size:18px}
+.strip .it.main{background:var(--sage-bg);border:1.5px solid var(--sage)}
+.strip .it.main b{color:var(--green)}
+.strip .it.bad{background:var(--rose-bg);border:1.5px solid var(--rose)}
+.strip .it.bad b{color:var(--red)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;max-height:520px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:var(--soft);color:var(--sub);font-weight:700;font-size:12px;padding:7px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:1}
+td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.tot td{font-weight:700;background:var(--soft)}
+tr.cont td:not([rowspan]){border-bottom:1px dashed var(--border)}   /* 같은 사람의 다음 항목 줄이 이어짐 */
+tr.sel td{background:var(--sage-bg)}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover td{background:var(--soft)}
+.v{display:inline-block;font-size:11.5px;font-weight:700;border-radius:20px;padding:1px 8px;border:1px solid}
+.v.ok{color:var(--green);background:var(--sage-bg);border-color:var(--sage-tag)}
+.v.no{color:var(--red);background:var(--rose-bg);border-color:#ecd6d6}
+.v.mid{color:var(--amber-ink);background:var(--amber-bg);border-color:var(--amber-border)}
+.notes{margin:0;padding:0;list-style:none}
+.notes li{font-size:13px;padding:8px 11px;border-radius:8px;margin-bottom:6px;border:1px solid;line-height:1.6}
+.notes li.warn{color:var(--amber-ink);background:var(--amber-bg);border-color:var(--amber-border)}
+.notes li.info{background:var(--soft);border-color:var(--border)}
+.notes li.ok{color:var(--green);background:var(--sage-bg);border-color:var(--sage-tag)}
+input.f{height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:13px;color:var(--text);background:#fff}
+input.f:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,143,166,.16)}
+td.bad{color:var(--red);font-weight:700}
+label.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin:2px 16px 6px 0}
+label.chk input{width:15px;height:15px;accent-color:var(--sage)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--text);padding:8px 14px;border-radius:8px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--soft)}
+.btn.pri{background:var(--text);border-color:var(--text);color:#fff}
+.btn.sage{background:var(--sage);border-color:var(--sage);color:#fff}
+.btn.sm{padding:4px 9px;font-size:12px;border-radius:6px}
+.btn.big{padding:12px 24px;font-size:15px}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.setgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px 16px;margin-top:12px}
+.setgrid label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:700;color:var(--sub)}
+.setgrid input.f{width:100%;height:36px}
+/* 설명은 칸 아래에 → 제목·입력칸 줄이 네 칸 모두 같은 높이 */
+.setgrid .sub{font-weight:400;font-size:11.5px;color:var(--faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.chips button{border:1.5px solid var(--border);background:#fff;border-radius:20px;padding:5px 12px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;color:var(--sub)}
+.chips button.on{background:var(--sage-bg);border-color:var(--sage);color:var(--green)}
+.drop{border:2px dashed var(--border);border-radius:12px;padding:22px;text-align:center;background:var(--soft)}
+.drop.over{border-color:var(--sage);background:var(--sage-bg)}
+details.more{margin-top:4px}
+details.more>summary{cursor:pointer;font-weight:700;font-size:15px;list-style:none}
+details.more>summary::before{content:"▸ ";color:var(--sage)}
+details.more[open]>summary::before{content:"▾ "}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 18px;border-radius:9px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <div>
+      <h1>사업소득(프리랜서) 매장별 위하고 업로드 · 항목별 <span class="rate-chip">위하고 사업소득자료입력 엑셀 업로드 양식</span></h1>
+      <p>디자이너 수수료 자료 올리기 → 매장별로 나눔 → 디자이너수수료·점판·프리미엄을 <b>항목마다 한 줄</b>씩, 3.3%도 항목마다 따로 → 매장마다 업로드 엑셀 내려받기</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="slip-title"><h2><span class="num-badge">1</span>수수료 자료 올리기</h2><span class="hint" id="srcInfo"></span></div>
+    <div class="drop" id="drop">
+      <label class="btn pri big">수수료 엑셀 선택<input type="file" id="file" accept=".xlsx,.xls,.xlsm" hidden></label>
+      <p class="hint" style="margin:10px 0 0">또는 여기로 끌어 놓기</p>
+    </div>
+    <div class="grp-t">대표자 목록 (신고에서 뺄 사람)</div>
+    <div class="toolbar drop" id="ownDrop" style="margin:0;padding:12px 14px;text-align:left">
+      <label class="btn">대표자 목록 엑셀 올리기<input type="file" id="ownFile" accept=".xlsx,.xls,.xlsm,.csv" hidden></label>
+      <span class="hint" id="ownInfo">상호·대표자·대표자주민번호 → 주민번호 같은 디자이너를 뺌 (한 번 올리면 기억)</span>
+    </div>
+    <div class="setgrid">
+      <label>귀속년월<input class="f" type="month" id="ym"><span class="sub">파일 이름·제목에서 찾음</span></label>
+      <label>지급년월일<input class="f" type="date" id="pay"><span class="sub">귀속 다음 달 10일 (바꿀 수 있음)</span></label>
+      <label>세율(%)<input class="f" type="number" id="rate" step="0.1" min="0"><span class="sub" id="rateLbl"></span></label>
+      <label>소득구분<input class="f" id="kind" list="kinds"><span class="sub">위하고 양식 목록 이름</span></label>
+    </div>
+    <datalist id="kinds"></datalist>
+    <div id="sheetBox" class="hidden" style="margin-top:12px">
+      <div class="grp-t">읽을 시트</div>
+      <div id="sheetList"></div>
+    </div>
+  </section>
+
+  <section class="card hidden" id="resCard">
+    <div class="slip-title"><h2><span class="num-badge">2</span>매장별 결과</h2>
+      <span class="toolbar" style="margin:0"><button class="btn" id="btnSum">매장별 원천세 합계표</button><button class="btn sage" id="btnZip">내 거래처 ZIP 내려받기</button></span>
+    </div>
+    <details class="more" id="mineBox" style="margin-bottom:12px">
+      <summary id="mineSum">내 거래처</summary>
+      <p class="hint" style="margin:8px 0">매장을 눌러 내 거래처 ↔ 아닌 곳 (기억됨)</p>
+      <div class="toolbar"><input class="f" id="mineQ" placeholder="매장 이름 찾기" style="width:200px"><button class="btn sm" id="mineAll">전체 내 거래처로</button><button class="btn sm" id="mineNone">전체 아닌 곳으로</button><span id="firmBtns"></span></div>
+      <div id="mineChips"></div>
+    </details>
+    <div class="strip" id="strip"></div>
+    <ul class="notes" id="warns"></ul>
+    <div class="tbl-wrap" style="max-height:none">
+      <table id="storeTbl"></table>
+    </div>
+  </section>
+
+  <section class="card hidden" id="detCard">
+    <div class="slip-title"><h2><span class="num-badge">3</span>매장 미리보기</h2><span class="hint" id="detSame"></span></div>
+    <div class="chips" id="storeChips"></div>
+    <div class="tbl-wrap"><table id="detTbl"></table></div>
+  </section>
+
+  <section class="card">
+    <details class="more">
+    <summary>업로드 파일 설정 · 참고</summary>
+    <div class="toolbar" style="margin-top:10px">
+      <label class="chk"><input type="checkbox" id="addrChk">주소도 넣기 (원본 「주소」 → 기본주소)</label>
+      <label class="chk"><input type="checkbox" id="noTopChk">안내문 1·2행 빼기 (머리글 1행, 자료 2행부터)</label>
+      <label class="chk"><input type="checkbox" id="xlsChk">.xls로 내려받기 (서식 없이)</label>
+      <label class="chk"><input type="checkbox" id="rateYmChk">세율 연도를 귀속년월로 나누기 (예전 방식 · 기본은 지급년월일)</label>
+    </div>
+    <ul class="notes">
+      <li class="info">수수료 엑셀은 머리글 줄(매장명·디자이너·소계·주민번호 …)을 자동으로 찾습니다. 대표자 목록은 상호·대표자·대표자주민번호 열이 있는 엑셀이고, 주민번호가 같은 디자이너를 빼며 뺀 사람은 매장·이름으로 기억합니다(주민번호는 저장 안 함).</li>
+      <li class="info">소득자명 = 디자이너 · 주민등록번호 = 주민번호(숫자 13자리) · 귀속년월 <code>2026.10</code> · 지급년월일 <code>2026.11.10</code> 형식으로 넣습니다.</li>
+      <li class="info">한 사람이 디자이너수수료(디자이너수수료 ~ 소계 바로 앞 열)·점판수수료·프리미엄 인센티브를 받았으면 <b>항목마다 한 줄씩</b> 넣습니다(0원 항목은 줄을 만들지 않음). 줄마다 지급총액 = 그 항목 금액이고, 항목 합 = 소계입니다.</li>
+      <li class="info">소득세 = 항목 금액 × 세율, 지방소득세 = 소득세 × 10%, <b>항목마다</b> 각각 <b>10원 미만 버림</b>. 사람의 차인지급액(항목별 차인지급액 합)을 원본 <b>입금총계</b>와 원 단위까지 비교합니다.</li>
+      <li class="info">원본에서 같은 매장·같은 사람이 두 줄이면, 원본이 줄마다 세금을 뗐으므로 합치지 않고 줄마다 항목을 따로 넣습니다.</li>
+      <li class="info">소득구분은 「기타인적용역자」(코드 940909, 국세청 이름 기타자영업)로 넣습니다. 위하고 양식 목록에 있는 이름이어야 업로드됩니다.</li>
+      <li class="info">세율은 <b>지급연도별로</b> 기억합니다(원천징수는 지급할 때 떼므로). <b>2027.01 지급분부터 2%</b>(지방소득세 0.2%, 합 2.2%)로 넣어 두었습니다 — 2026년 12월 귀속 · 2027.01.10 지급분도 2%, 2026년 지급분은 3% 그대로. 세율이 또 바뀌면 지급년월일을 그해로 두고 세율 칸을 고치면 그해 지급분부터 쓰입니다. 적어 두지 않은 해는 그 전 해 세율을 이어 씁니다. 위 「세율 연도를 귀속년월로 나누기」를 켜면 예전처럼 귀속연도로 나눕니다.</li>
+      <li class="info">소액부징수(소득세법 제86조) 개정: 인적용역 사업소득은 2024.07.01 이후 지급분부터 세액이 1,000원 미만이어도 원천징수합니다(위하고 안내). 그래서 금액이 작아도 3.3%를 뗍니다.</li>
+      <li class="info">내.외국인구분: 주민번호 7번째 자리가 5·6·7·8(외국인등록번호)이면 <b>1(외국인)</b>, 아니면 비워 둠(내국인으로 등록).</li>
+      <li class="info">자료는 이 브라우저 안에서만 읽고 어디로도 보내지 않습니다. 기억하는 것은 내 거래처 목록과 설정값뿐입니다(주민번호는 저장 안 함).</li>
+    </ul>
+    </details>
+  </section>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const won = n => (Math.round(n) || 0).toLocaleString('ko-KR');
+const exact = n => (n || 0).toLocaleString('ko-KR', { maximumFractionDigits: 4 });   // 원 미만까지 그대로
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400); }
+const norm = s => String(s ?? '').replace(/\s+/g, '');
+function num(v) {
+  if (typeof v === 'number') return v;
+  let s = String(v ?? '').trim(); if (!s || s === '-') return 0;
+  // 음수 표시: (1,000) · △1,000 · ▲1,000
+  const neg = /^\(.*\)$/.test(s) || /^[△▲-]/.test(s); s = s.replace(/[(),원\s△▲₩-]/g, '');
+  const n = Number(s); return isNaN(n) ? 0 : (neg ? -n : n);
+}
+
+// ── 위하고 「사업소득자료입력」 양식 (A 순번 ~ O 연말정산, 3행 머리글, 4행부터 자료) ──
+const HEAD = ['', '귀속년월', '지급년월일', '소득자명', '주민등록번호', '기본주소', '상세주소', '소득구분', '영수일자', '지급총액', '세율(%)', '소득세', '지방소득세', '내.외국인구분', '연말정산'];
+const WIDTH = [5.1, 9.75, 11.9, 22.6, 14.75, 53.2, 26.2, 21.1, 9.75, 15.9, 9, 17.5, 20.4, 13.4, 12];
+const TITLE = ' 사업소득자료입력     ※ 본 서식은 SmartA 인사급여 사업소득자료입력 메뉴로 Excel DATA를 자동 변환하기 위한 서식입니다.';
+const GUIDE = `◈ 사업소득자료입력으로 엑셀 데이터를 반영하기 전 사업소득자입력의 사원정보를 먼저 작업하셔야 합니다.
+
+◈ 귀속월, 지급월일, 소득자명, 주민등록번호, 소득구분은 반드시 기재하셔야 합니다. 변환시 사업소득자입력의 주민(외국인)등록번호로 인식하여 변환이 됩니다.
+◈ 주민등록번호를 입력할 때에는 ' : / ? -"등 특수문자를 제외하고 입력하여 주십시오.
+◈ 소득세와 지방소득세는 입력한 지급총액과 세율에 따라 자동 계산되어 반영되며, 직접 수정 가능합니다.
+◈ 세액계는 소득세와 지방소득세 금액을 합산하여 자동반영되며, 직접 수정 가능합니다.
+◈ 차인지급액은 지급총액에서 세액계 금액을 차감한 금액으로 자동반영되며, 직접 수정 가능합니다.
+◈ 연말정산 여/부 체크는 방문판매원,보험설계,음료배달 를 제외한 다른 소득구분을 여로 체크하셔도 부로 반영됩니다.
+◈ 입력한 주민(외국인)등록번호가 사업소득자입력에 없을경우 자동으로 소득자등록을 합니다.
+◈ 사업소득자 자동등록시 내외국인구분을 입력합니다. 0.내국인1.외국인이 입력이 되어있지 않으면 내국인으로 등록됩니다.
+◈ 예술인/노무제공자(특고) 등록에 '여'로 입력된 사업소득자만 필요경비 및 고용보험료 가 계산됩니다.
+
+▣ 본서식을 변형하여 사용시 사업소득자료입력 메뉴로 변환되지 않을 수 있습니다.`;
+// 양식 IV열의 소득구분 선택 목록 (기타자영업 = 기타인적용역자)
+const DEF_KIND = '기타인적용역자';
+const KINDS = ['기타인적용역자','병의원', '저술가', '화가관련', '작곡가', '배우', '모델', '가수', '성악가', '1인미디어콘텐츠창작자', '연예보조', '자문/고문', '바둑기사', '꽃꽂이교사', '학원강사', '직업운동가', '봉사료수취자', '보험설계', '음료배달', '방판/외판', '다단계판매', '기타모집수당', '간병인', '대리운전', '캐디', '목욕관리사', '행사도우미', '심부름용역', '퀵서비스', '물품배달', '학습지방문강사', '교육교구방문강사', '대여제품방문점검원', '대출모집인', '신용카드회원모집인', '방과후강사', '소프트웨어프리랜서', '관광통역안내사', '어린이통학버스기사', '중고자동차판매원'];
+$('#kinds').innerHTML = KINDS.map(k => `<option value="${esc(k)}">`).join('');
+
+// ── 설정 (세율·소득구분·파일 옵션은 기억) ──
+const SKEY = 'bizinc-wehago-set-v1';
+// rates: 귀속연도 → 세율. 적어 두지 않은 해는 그 전 가장 가까운 해의 세율을 이어 씀
+let SET = { rates: { 2026: 3, 2027: 2 }, kind: DEF_KIND, addr: false, noTop: false, xls: false, rateYm: false };
+try { SET = { ...SET, ...(JSON.parse(localStorage.getItem(SKEY) || 'null') || {}) }; } catch (e) {}
+if (SET.rate != null) { SET.rates = { ...SET.rates, 2026: SET.rate }; delete SET.rate; }   // 예전 한 칸 세율
+// 2027.01 지급분부터 2% (2026-11-04 사용자 지시). 이미 기억된 세율에 2027년이 없을 때만 넣음 → 세율 칸에서 고친 값은 그대로
+if (SET.rates[2027] == null) SET.rates[2027] = 2;
+// 세율 연도: 기본은 지급년월일 연도(2027.01 지급분부터 새 세율), 「귀속년월로 나누기」를 켜면 귀속연도
+const YEAR = () => Number((SET.rateYm ? $('#ym').value : $('#pay').value || $('#ym').value).slice(0, 4));
+const BASIS = () => SET.rateYm ? '귀속' : '지급';
+function rateYear(y) { const ys = Object.keys(SET.rates).map(Number).filter(x => x <= y).sort((a, b) => b - a); return ys[0]; }
+const RATE = () => { const y = rateYear(YEAR()); return y ? SET.rates[y] : 3; };
+function showRate() {
+  const y = YEAR(), from = rateYear(y);
+  $('#rate').value = RATE();
+  $('#rateLbl').textContent = from === y ? `${y}년 ${BASIS()}분` : from ? `${y}년 ${BASIS()}분 · ${from}년 세율 이어 씀` : `${y}년 ${BASIS()}분 · 기본 3`;
+}
+// 위하고 목록에 없는 「기타자영업」으로 기억돼 있으면 기타인적용역자로
+if (!KINDS.includes(SET.kind)) SET.kind = DEF_KIND;
+function persistSet() { try { localStorage.setItem(SKEY, JSON.stringify(SET)); } catch (e) {} }
+const pad = n => String(n).padStart(2, '0');
+let PAY_EDITED = false;   // 지급일을 직접 고쳤으면 귀속월이 바뀌어도 그대로 둠
+function setYm(ym) {
+  $('#ym').value = ym;
+  if (!PAY_EDITED) { const [y, m] = ym.split('-').map(Number); const d = new Date(y, m, 10); $('#pay').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-10`; }
+  showRate();   // 귀속연도가 바뀌면 그해 세율로
+}
+{ const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); setYm(`${d.getFullYear()}-${pad(d.getMonth() + 1)}`); }
+$('#kind').value = SET.kind;
+$('#addrChk').checked = SET.addr; $('#noTopChk').checked = SET.noTop; $('#xlsChk').checked = SET.xls; $('#rateYmChk').checked = SET.rateYm;
+const YM = () => $('#ym').value.replace('-', '.');              // 2026.10
+const PAYD = () => $('#pay').value.replace(/-/g, '.');           // 2026.11.10
+
+// 원천징수: 소득세 = 지급총액 × 세율, 지방소득세 = 소득세 × 10%, 10원 미만 버림
+// 음수 항목(차감)도 0 쪽으로 버림 (−370.35 → −370)
+const cut10 = n => Math.sign(n) * Math.floor(Math.abs(n) / 10 + 1e-9) * 10;
+const taxOf = amt => { const it = cut10(amt * RATE() / 100); return { it, lt: cut10(it * 0.1) }; };
+
+// ── 읽기 ──
+let BOOK = null, FILE = '', SHEETS = [], USE = new Set(), DATA = null, CUR = null;
+function findHeader(rows) {
+  for (let i = 0; i < Math.min(rows.length, 30); i++) {
+    const h = rows[i].map(norm);
+    if (h.includes('디자이너') && h.includes('소계')) return i;
+  }
+  return -1;
+}
+function loadFile(f) {
+  FILE = f.name;
+  const rd = new FileReader();
+  rd.onload = e => {
+    try { BOOK = XLSX.read(e.target.result, { type: 'array' }); }
+    catch (err) { toast('엑셀을 읽지 못했습니다'); return; }
+    SHEETS = BOOK.SheetNames.map(n => {
+      const rows = XLSX.utils.sheet_to_json(BOOK.Sheets[n], { header: 1, raw: true, defval: '' });
+      return { name: n, rows, hi: findHeader(rows) };
+    }).filter(s => s.hi >= 0);
+    if (!SHEETS.length) { toast('디자이너·소계 머리글이 있는 시트를 찾지 못했습니다'); return; }
+    USE = new Set(SHEETS.map(s => s.name));
+    $('#sheetList').innerHTML = SHEETS.map(s => `<label class="chk"><input type="checkbox" data-s="${esc(s.name)}" checked>${esc(s.name)}</label>`).join('');
+    $('#sheetBox').classList.toggle('hidden', SHEETS.length < 2);
+    // 귀속월: 파일명·제목줄에 2026.10 / 202610 / 10월 이 있으면 그 달
+    const text = FILE + ' ' + SHEETS.flatMap(s => s.rows.slice(0, s.hi).map(r => r.join(' '))).join(' ');
+    // 새 자료를 올리면 지급일은 다시 「귀속 다음 달 10일」로
+    PAY_EDITED = false;
+    const m = text.match(/(20\d{2})\s*[.\-년\/_]?\s*(1[0-2]|0?[1-9])\s*월?(?!\d)/);
+    const m2 = !m && text.match(/(1[0-2]|[1-9])\s*월/);
+    setYm(m ? `${m[1]}-${pad(m[2])}` : m2 ? `${$('#ym').value.slice(0, 4)}-${pad(m2[1])}` : $('#ym').value);
+    lastYm = $('#ym').value;
+    toast(m || m2 ? `귀속 ${YM()} (파일 이름·제목에서 찾음) · 지급 ${PAYD()}` : `귀속월을 못 찾아 ${YM()}로 둡니다 — 확인하세요`);
+    CUR = null; build(true);
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+// 주민번호: 숫자만. 엑셀 숫자로 저장돼 앞자리 0이 빠지면 13자리까지 0을 채움
+// (0X년생 12자리, 2000년 10~12월생 11자리, 2000년 1~9월생 10자리)
+function rrnOf(v) {
+  let s = typeof v === 'number' ? String(Math.round(v)) : String(v ?? '').replace(/\D/g, '');
+  if (typeof v === 'number' && s.length >= 10 && s.length < 13) s = s.padStart(13, '0');
+  return s;
+}
+
+function parse() {
+  const people = [], totals = [], labels = new Set();
+  const storeName = new Map(), canon = s => { const k = norm(s); if (!storeName.has(k)) storeName.set(k, s.replace(/\s+/g, ' ')); return storeName.get(k); };
+  for (const s of SHEETS) {
+    if (!USE.has(s.name)) continue;
+    const h = s.rows[s.hi].map(norm);
+    const ix = (...ks) => { for (const k of ks) { const i = h.indexOf(k); if (i >= 0) return i; } return -1; };
+    const c = { firm: ix('세무법인'), mgr: ix('담당자'), store: ix('매장명'), name: ix('디자이너'), sum: ix('소계'),
+      rrn: ix('주민번호', '주민등록번호'), addr: ix('주소'), net: ix('입금총계'), it: ix('사업소득세합계'), lt: ix('지방소득세합계') };
+    const g = (r, k) => c[k] >= 0 ? r[c[k]] : '';
+    const iNotes = h.map((x, i) => x === '비고' ? i : -1).filter(i => i >= 0);   // 비고 칸이 두 개
+    // 소계를 이루는 항목 = 디자이너수수료 ~ 소계 바로 앞 (점판수수료 · 프리미엄회원권 인센티브)
+    const i0 = ix('디자이너수수료'), parts = [];
+    if (i0 >= 0 && c.sum > i0) for (let k = i0; k < c.sum; k++) if (h[k]) parts.push(k);
+    const plabel = k => String(s.rows[s.hi][k]).replace(/\s+/g, ' ').trim();
+    parts.forEach(k => labels.add(plabel(k)));
+    let last = { store: '', firm: '', mgr: '' };
+    const sheetPeople = []; let blockStart = 0;
+    for (let i = s.hi + 1; i < s.rows.length; i++) {
+      const r = s.rows[i];
+      const name = String(g(r, 'name')).trim();
+      let store = String(g(r, 'store')).trim(), firm = String(g(r, 'firm')).trim(), mgr = String(g(r, 'mgr')).trim();
+      // 매장명 칸이 병합돼 있으면 첫 줄에만 값이 있음 → 빈 칸은 바로 위 값으로
+      if (!name || /합계|소계/.test(name + store)) {
+        // 엑셀의 합계·소계 줄: 사람 줄을 다시 더해 비교 (매장명이 든 줄은 그 매장, 소계는 직전 묶음, 합계는 시트 전체)
+        // 0원이고 「계」 글자도 없는 줄(빈 구분 줄)은 건너뜀
+        if (c.sum >= 0 && String(g(r, 'sum')).trim() !== '' && (num(g(r, 'sum')) || /계/.test(r.join('')) && sheetPeople.length > blockStart)) {
+          const text = norm(r.join('')), label = r.map(String).filter(x => /[가-힣A-Za-z]/.test(x)).join(' ').trim() || '합계';
+          const st = [...new Set(sheetPeople.map(p => p.store))].sort((a, b) => b.length - a.length).find(x => text.includes(norm(x)));
+          const ps = st ? sheetPeople.filter(p => p.store === st) : /소계/.test(label) ? sheetPeople.slice(blockStart) : sheetPeople;
+          // 「합계·소계」 글자가 없는 줄은 디자이너 이름이 빠진 사람 줄일 수 있음
+          totals.push({ sheet: s.name, row: i + 1, label, n: ps.length, xl: num(g(r, 'sum')), calc: ps.reduce((a, p) => a + p.amt, 0),
+            stores: [...new Set(ps.map(p => p.store))], named: /합계|소계|계/.test(label) });
+          blockStart = sheetPeople.length;
+        }
+        last = { store: '', firm: '', mgr: '' }; continue;
+      }
+      if (!store) ({ store, firm, mgr } = { store: last.store, firm: firm || last.firm, mgr: mgr || last.mgr });
+      if (!store) continue;
+      last = { store, firm, mgr };
+      const p = {
+        sheet: s.name, row: i + 1, store: canon(store), firm, mgr, name, rrn: rrnOf(g(r, 'rrn')), addr: String(g(r, 'addr')).trim(),
+        note: iNotes.map(c => String(r[c]).trim()).filter(Boolean).join(' / '),
+        amt: num(g(r, 'sum')), net: c.net >= 0 ? num(g(r, 'net')) : null,
+        it: c.it >= 0 ? num(g(r, 'it')) : null, lt: c.lt >= 0 ? num(g(r, 'lt')) : null,
+        parts: parts.length ? parts.reduce((a, k) => a + num(r[k]), 0) : null,
+        // 신고 줄 = 항목마다 한 줄. 항목 열을 못 찾으면 소계 한 줄
+        items: parts.length ? parts.map(k => ({ label: plabel(k), amt: num(r[k]) })) : [{ label: '소계', amt: num(g(r, 'sum')) }],
+      };
+      people.push(p); sheetPeople.push(p);
+    }
+  }
+  return { people, totals, labels: [...labels] };
+}
+const same = (a, b) => Math.abs(a - b) < 0.001;
+
+// 같은 매장에 같은 사람이 두 줄이면 합침 (주민번호 → 없으면 이름)
+function merge(people) {
+  const out = [], key = p => `${p.store}|${p.rrn.length === 13 ? p.rrn : p.name}`, by = new Map();
+  for (const p of people) {
+    const k = key(p);
+    if (!by.has(k)) { const q = { ...p, items: [...p.items], lines: 1 }; by.set(k, q); out.push(q); continue; }
+    const q = by.get(k); q.lines++; q.amt += p.amt; q.items.push(...p.items); if (p.note) q.note = [q.note, p.note].filter(Boolean).join(' / ');
+    for (const f of ['net', 'it', 'lt', 'parts']) q[f] = q[f] == null || p[f] == null ? null : q[f] + p[f];
+  }
+  return out;
+}
+
+function convert(p) {
+  // 원 미만 소계는 반올림 (0.5도 올림). 엑셀 계산값 1000.4999999 같은 오차가 내림되지 않게 소수 둘째 자리로 먼저 맞춤
+  const r2 = v => Math.round(Math.round(v * 100) / 100);
+  // 항목마다 따로 원천징수: 소득세 = 항목 금액 × 세율, 지방소득세 = 소득세 × 10%, 각각 10원 미만 버림. 0원 항목은 줄을 만들지 않음
+  const items = p.items.map(x => { const amt = r2(x.amt), { it, lt } = taxOf(amt); return { label: x.label, src: x.amt, amt, it, lt, net: amt - it - lt }; }).filter(x => x.amt !== 0);
+  const add = k => items.reduce((a, x) => a + x[k], 0);
+  const amt = add('amt'), it = add('it'), lt = add('lt'), net = amt - it - lt;
+  const diff = p.net == null ? null : net - Math.round(p.net);
+  // 신고 지급총액(항목 합) ↔ 엑셀 소계(원 단위)
+  const gap = amt - r2(p.amt);
+  const issues = [];
+  if (p.rrn.length !== 13) issues.push(p.rrn ? `주민번호 ${p.rrn.length}자리` : '주민번호 없음');
+  if (p.lines > 1) issues.push(`원본 ${p.lines}줄 → 줄마다 항목 따로`);
+  // 소계 = 디자이너수수료 + 점판수수료 + 프리미엄회원권 인센티브 (정확히)
+  const sumDiff = p.parts == null || same(p.parts, p.amt) ? 0 : p.amt - p.parts;
+  if (items.some(x => x.amt < 0)) issues.push('음수 항목');
+  if (p.parts == null) issues.push('항목 열을 못 찾아 소계 한 줄');
+  // 외국인등록번호: 7번째 자리 5~8 → 양식 내.외국인구분 1
+  const foreign = p.rrn.length === 13 && /[5-8]/.test(p.rrn[6]);
+  if (foreign) issues.push('외국인 → 내.외국인구분 1');
+  const ex = isOwner(p);
+  return { p, items, amt, it, lt, net, diff, gap, foreign, sumDiff, ok: diff === null || diff === 0, zero: !items.length, ex, auto: ex && OWN[okey(p)] === undefined, issues };
+}
+
+// ── 대표자 빼기: 매장|이름 → true(뺌) / false(넣음). 정한 적 없으면 비고에 「대표」가 있을 때 뺌 ──
+const OKEY = 'bizinc-wehago-owner-v1';
+let OWN = {};
+try { OWN = JSON.parse(localStorage.getItem(OKEY) || '{}') || {}; } catch (e) {}
+function persistOwn() { try { localStorage.setItem(OKEY, JSON.stringify(OWN)); } catch (e) {} }
+const okey = p => `${norm(p.store)}|${norm(p.name)}`;
+const isOwner = p => OWN[okey(p)] ?? /대표/.test(p.note);
+// 올린 대표자 목록 (이번 화면에서만 사용): { firm: 상호, name, rrn }
+let OWNERS = [], OWN_HIT = [];
+function readOwners(wb) {
+  const out = [];
+  for (const n of wb.SheetNames) {
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: '' });
+    for (let i = 0; i < Math.min(rows.length, 30); i++) {
+      const h = rows[i].map(norm);
+      const ir = h.findIndex(x => /주민/.test(x)); if (ir < 0) continue;
+      const inm = h.findIndex(x => /^(대표자|대표자명|대표|성명)$/.test(x)), ifirm = h.findIndex(x => /^(상호|상호명|매장명|거래처명?|회사명)$/.test(x));
+      for (const r of rows.slice(i + 1)) { const rrn = rrnOf(r[ir]); if (rrn.length === 13) out.push({ rrn, name: inm >= 0 ? String(r[inm]).trim() : '', firm: ifirm >= 0 ? String(r[ifirm]).trim() : '' }); }
+      break;
+    }
+  }
+  return out;
+}
+// 주민번호가 같은 디자이너 → 대표자로 뺌 (목록·수수료 자료를 새로 올릴 때만. 직접 푼 체크는 그다음에 고친 대로)
+function matchOwners(people) {
+  const hit = [];
+  for (const p of people) {
+    const o = p.rrn.length === 13 && OWNERS.find(o => o.rrn === p.rrn);
+    if (!o) continue;
+    OWN[okey(p)] = true;
+    // 상호와 매장명이 서로 안 겹치면 알림 (다른 매장 대표가 디자이너로 일하는 경우 확인용)
+    const a = norm(o.firm), b = norm(p.store);
+    hit.push({ p, o, other: !!a && !a.includes(b) && !b.includes(a) });
+  }
+  persistOwn();
+  return hit;
+}
+
+function build(match) {
+  const src = parse(), people = merge(src.people);
+  if (match) OWN_HIT = OWNERS.length ? matchOwners(people) : [];   // 전 파일의 알림이 남지 않게
+  const rows = people.map(convert);
+  DATA = { rows: [], allStores: [], by: new Map(), firms: new Map(), totals: src.totals };
+  for (const r of rows) {
+    const s = r.p.store;
+    if (!DATA.by.has(s)) { DATA.by.set(s, []); DATA.allStores.push(s); }
+    DATA.by.get(s).push(r);
+    if (r.p.firm) { if (!DATA.firms.has(r.p.firm)) DATA.firms.set(r.p.firm, new Set()); DATA.firms.get(r.p.firm).add(s); }
+  }
+  DATA.stores = DATA.allStores.filter(isMine);
+  DATA.rows = rows.filter(r => isMine(r.p.store));
+  if (!CUR || !DATA.stores.includes(CUR)) CUR = DATA.stores[0];
+  $('#srcInfo').textContent = `${FILE} · ${rows.length}명 · ${DATA.allStores.length}개 매장 · 항목 ${src.labels.join(' / ') || '못 찾음(소계 한 줄)'}`;
+  renderMine(); renderResult(); renderDetail();
+  // 파일을 올릴 때만: 새 매장이 있거나 고른 매장이 없으면 펼치고, 아니면 접어서 결과가 바로 보이게
+  // (매장을 고르는 중에는 펼친 채로 둠)
+  if (match) $('#mineBox').open = !DATA.stores.length || DATA.allStores.some(s => !KNOWN.has(norm(s)) && !isMine(s));
+}
+
+// ── 내 거래처 고르기 ──
+const MKEY = 'bizinc-wehago-mine-v1';
+let MINE = null, KNOWN = new Set();
+try {
+  let j = JSON.parse(localStorage.getItem(MKEY) || 'null');
+  // 처음 쓰면 급여 도구에서 고른 내 거래처를 그대로 가져옴
+  if (!j) j = JSON.parse(localStorage.getItem('payroll-wehago-mine-v1') || 'null');
+  if (j) { MINE = new Set(j.mine.map(norm)); KNOWN = new Set(j.known.map(norm)); }
+} catch (e) {}
+function persistMine() { try { localStorage.setItem(MKEY, JSON.stringify({ mine: [...MINE], known: [...KNOWN] })); } catch (e) {} }
+const isMine = s => !!MINE && MINE.has(norm(s));
+function setMine(list) {
+  MINE = new Set(list.map(norm));
+  DATA.allStores.forEach(s => KNOWN.add(norm(s)));
+  persistMine(); build();
+}
+function renderMine() {
+  const all = DATA.allStores, fresh = all.filter(s => !KNOWN.has(norm(s)));
+  $('#mineSum').innerHTML = `내 거래처 <b>${DATA.stores.length}곳</b> <span class="hint">· 아닌 곳 ${all.length - DATA.stores.length - fresh.filter(s => !isMine(s)).length}곳${fresh.length ? ` · <span style="color:var(--red)">새 매장 ${fresh.length}곳</span>` : ''} (자료 전체 ${all.length}곳)</span>`;
+  const q = norm($('#mineQ').value), cnt = s => DATA.by.get(s).length;
+  const chip = s => `<button data-m="${all.indexOf(s)}" class="${isMine(s) ? 'on' : ''}" ${q && !norm(s).includes(q) ? 'hidden' : ''}>${esc(s)} <span class="hint">${cnt(s)}</span></button>`;
+  const grp = (title, list, style) => list.length ? `<div class="grp-t" style="${style || ''}">${title} ${list.length}곳</div><div class="chips">${list.map(chip).join('')}</div>` : '';
+  const ko = (a, b) => a.localeCompare(b, 'ko');
+  $('#mineChips').innerHTML =
+    grp('<span class="v no">새</span> 처음 보는 매장 — 내 거래처면 누르세요', fresh.filter(s => !isMine(s)).sort(ko)) +
+    grp('내 거래처', DATA.stores.slice().sort(ko)) +
+    grp('내 거래처 아님', all.filter(s => !isMine(s) && !fresh.includes(s)).sort(ko), 'opacity:.75');
+  // 세무법인 칸이 있으면 그 세무법인 매장을 한 번에 더하기
+  $('#firmBtns').innerHTML = [...DATA.firms.keys()].sort((a, b) => a.localeCompare(b, 'ko')).map((f, i) => `<button class="btn sm" data-firm="${esc(f)}">+ ${esc(f)} 매장 (${DATA.firms.get(f).size})</button>`).join(' ');
+}
+
+// ── 화면 ──
+const sumOf = (rs, k) => rs.reduce((a, r) => a + r[k], 0);
+const up = rs => rs.filter(r => !r.zero && !r.ex);
+const nLines = rs => rs.reduce((a, r) => a + r.items.length, 0);   // 업로드 줄 수 (항목 수)
+// 미리보기에서만 항목 이름을 짧게 (원래 이름은 마우스를 올리면 보임)
+const shortLabel = s => /디자이너/.test(s) ? '수수료' : /점판/.test(s) ? '점판' : /프리미엄/.test(s) ? '프리미엄' : s;
+// 신고 지급총액 = 항목 합. 항목에 원 미만이 있으면 항목마다 반올림해서 넣고 알림
+const sumErr = r => !r.ex && !r.sumDiff && r.items.some(x => x.amt !== x.src);
+// 알림만: 소계 ≠ 수수료 합, 엑셀 합계·소계 줄 틀림 (2026-10-31 사용자 결정)
+const partsWarn = r => !r.ex && !!r.sumDiff;
+// 신고 지급총액(항목 합) ≠ 엑셀 소계: 원본 소계가 항목 합과 다르거나, 항목 반올림으로 원 단위가 어긋남 → 알림 하나로
+const gapErr = r => partsWarn(r) || !r.ex && !r.zero && r.gap !== 0;
+const totErr = t => !same(t.xl, t.calc);
+function diffBadge(r) {
+  if (r.diff === null) return '<span class="v mid">입금총계 없음</span>';
+  if (r.diff === 0) return '<span class="v ok">일치</span>';
+  return `<span class="v no">차이 ${won(r.diff)}</span>`;
+}
+function renderResult() {
+  $('#resCard').classList.remove('hidden'); $('#detCard').classList.remove('hidden');
+  const rs = up(DATA.rows), bad = rs.filter(r => !r.ok);
+  // 소계 정확성: 사람별 소계 = 수수료 합 (0원도 포함, 대표자 제외) · 엑셀 합계/소계 줄 = 사람 줄 합
+  // 합계 줄은 내 거래처 사람이 든 것만 (남의 매장 소계가 틀린 건 보지 않음)
+  const sumBad = DATA.rows.filter(sumErr), gapBad = DATA.rows.filter(gapErr), totBad = DATA.totals.filter(t => totErr(t) && (!t.stores.length || t.stores.some(isMine)));
+  // 확인 두 가지를 맨 앞에 크게, 금액은 그 아래 한 줄로 작게
+  const nWarn = totBad.length;
+  $('#strip').innerHTML = `<div class="checks">
+    <div class="it ${gapBad.length ? 'bad' : 'main'}"><span>① 엑셀 소계 = 신고 지급총액(항목 합)${nWarn ? ` <span style="color:var(--amber-ink)">· 소계 계산 알림 ${nWarn}</span>` : ''}</span><b>${gapBad.length ? `다름 ${gapBad.length}명` : sumBad.length ? `✓ 같음 <span style="font-size:13px">(원 미만 반올림 ${sumBad.length}명)</span>` : '✓ 정확히 같음'}</b></div>
+    <div class="it ${bad.length ? 'bad' : 'main'}"><span>② 차인지급액(항목별 합) ↔ 엑셀 입금총계</span><b>${bad.length ? `불일치 ${bad.length}명` : '✓ 모두 일치'}</b></div></div>
+    <div class="figs"><span>귀속 <b>${esc(YM())}</b> · 지급 <b>${esc(PAYD().slice(5))}</b></span><span><b>${DATA.stores.length}</b>곳 <b>${rs.length}</b>명 · 업로드 <b>${nLines(rs)}</b>줄</span>
+    <span>지급총액 <b>${won(sumOf(rs, 'amt'))}</b></span><span>세액 ${esc(RATE())}%+지방 <b>${won(sumOf(rs, 'it') + sumOf(rs, 'lt'))}</b></span><span>차인지급액 <b style="color:var(--green)">${won(sumOf(rs, 'net'))}</b></span></div>`;
+  // 알림은 한 줄씩만, 명단은 눌러서 펼침 (펼친 상태는 다시 그려도 유지)
+  const w = [], fold = (key, cls, title, items) => w.push(`<li class="${cls}"><details data-fold="${key}" ${OPEN.has(key) ? 'open' : ''}><summary style="cursor:pointer">${title}</summary><div style="margin-top:4px">${items.join('<br>')}</div></details></li>`);
+  const who = r => `${esc(r.p.store)} <b>${esc(r.p.name)}</b>`;
+  if (gapBad.length) fold('gap', 'warn', `신고 지급총액(항목 합)이 엑셀 소계와 다름 <b>${gapBad.length}명</b> (알림 · 항목 금액대로 신고)`, gapBad.map(r => `${who(r)} — 소계 ${exact(r.p.amt)} / 신고 항목 합 ${won(r.amt)} (차이 ${won(r.gap)}) · ${r.sumDiff ? `원본 디자이너수수료+점판+프리미엄 ${exact(r.p.parts)}부터 소계와 다름` : '항목 원 미만 반올림 때문'}`));
+  if (sumBad.length) fold('sum', 'info', `항목 원 미만 반올림 ${sumBad.length}명`, sumBad.map(r => `${who(r)} — ${r.items.filter(x => x.amt !== x.src).map(x => `${esc(x.label)} ${exact(x.src)} → ${won(x.amt)}`).join(', ')}`));
+  if (totBad.length) fold('tot', 'warn', `엑셀 합계·소계 줄이 사람 합과 다름 <b>${totBad.length}곳</b> (알림)`, totBad.map(t => `${esc(t.sheet)} ${t.row}행 ${t.named ? `「${esc(t.label)}」` : '<b>디자이너 이름이 빈 줄</b> (사람 줄이면 이름을 채우세요)'} — 엑셀 ${exact(t.xl)} / 사람 ${t.n}명 더하면 ${exact(t.calc)} (차이 ${exact(t.xl - t.calc)})`));
+  const iss = rs.filter(r => r.issues.length);
+  if (iss.length) fold('iss', 'warn', `확인할 사람 <b>${iss.length}명</b>`, iss.map(r => `${who(r)} — ${r.issues.map(esc).join(' · ')}`));
+  if (bad.length) fold('bad', 'warn', `입금총계와 다름 <b>${bad.length}명</b>`, bad.map(r => `${who(r)} ${won(r.diff)}원`));
+  const own = DATA.rows.filter(r => r.ex && !r.zero);
+  if (own.length) fold('own', 'info', `대표자 ${own.length}명 뺌`, own.map(r => `${who(r)}${r.auto ? ' <span class="hint">(비고 「대표」)</span>' : ''}`));
+  const far = OWN_HIT.filter(h => h.other && isMine(h.p.store));
+  if (far.length) fold('far', 'warn', `상호가 다른 매장의 대표자 ${far.length}명 뺌`, far.map(h => `${esc(h.p.store)} <b>${esc(h.p.name)}</b> (상호 ${esc(h.o.firm)}) — 신고할 사람이면 체크 풀기`));
+  const z = DATA.rows.filter(r => r.zero);
+  // 항목이 모두 0원이면 뺌. 소계는 0이 아닌데 항목이 다 0원이면 원본 확인이 필요하므로 경고
+  if (z.length) fold('zero', z.some(r => r.p.amt) ? 'warn' : 'info', `신고 금액 0원 ${z.length}명 뺌`, z.map(r => who(r) + (r.p.amt ? ` — <b>항목이 모두 0원인데 소계 ${exact(r.p.amt)}</b>` : '')));
+  // 대표자를 아직 안 정한 매장
+  const noOwn = DATA.stores.filter(s => !DATA.by.get(s).some(r => r.ex));
+  if (noOwn.length) fold('noown', 'warn', `대표자 안 고른 매장 ${noOwn.length}곳`, [noOwn.map(esc).join(' · ')]);
+  if (!DATA.rows.length) w.push('<li class="info">고른 내 거래처가 없습니다. 위 「내 거래처」를 펼쳐 매장을 눌러 주세요.</li>');
+  else if (!w.length) w.push('<li class="ok">모든 사람의 차인지급액이 원본 입금총계와 같습니다.</li>');
+  $('#warns').innerHTML = w.join('');
+  $('#storeTbl').innerHTML = `<thead><tr><th>매장명</th><th class="n">인원</th><th class="n">줄</th><th class="n">지급총액</th><th class="n">소득세</th><th class="n">지방소득세</th><th class="n">차인지급액</th><th class="n">엑셀 입금총계</th><th>비교</th><th></th></tr></thead><tbody>${
+    DATA.stores.map((s, i) => { const all = DATA.by.get(s), rs = up(all), nb = rs.filter(r => !r.ok).length, ni = rs.filter(r => r.issues.length).length;
+      const src = rs.reduce((a, r) => a + (r.p.net ?? 0), 0);
+      return `<tr class="click ${s === CUR ? 'sel' : ''}" data-st="${i}"><td><b>${esc(s)}</b></td><td class="n">${rs.length}${(() => { const no = all.filter(r => r.ex && !r.zero).length, nz = all.filter(r => r.zero).length;
+          return no || nz ? ` <span class="hint">(${[no ? `대표 ${no}` : '', nz ? `0원 ${nz}` : ''].filter(Boolean).join(' · ')} 뺌)</span>` : ''; })()}</td>
+        <td class="n">${nLines(rs)}</td><td class="n">${won(sumOf(rs, 'amt'))}</td><td class="n">${won(sumOf(rs, 'it'))}</td><td class="n">${won(sumOf(rs, 'lt'))}</td><td class="n"><b>${won(sumOf(rs, 'net'))}</b></td><td class="n">${won(src)}</td>
+        <td>${nb ? `<span class="v no">불일치 ${nb}</span>` : '<span class="v ok">일치</span>'}${ni ? ` <span class="v mid">확인 ${ni}</span>` : ''}</td>
+        <td><button class="btn sm" data-dl="${i}" ${rs.length ? '' : 'disabled'}>엑셀 내려받기</button></td></tr>`; }).join('')
+  }</tbody><tfoot><tr class="tot"><td>합계</td><td class="n">${rs.length}</td><td class="n">${nLines(rs)}</td><td class="n">${won(sumOf(rs, 'amt'))}</td><td class="n">${won(sumOf(rs, 'it'))}</td><td class="n">${won(sumOf(rs, 'lt'))}</td><td class="n">${won(sumOf(rs, 'net'))}</td><td class="n">${won(rs.reduce((a, r) => a + (r.p.net ?? 0), 0))}</td><td></td><td></td></tr></tfoot>`;
+}
+function renderDetail() {
+  $('#storeChips').innerHTML = DATA.stores.map((s, i) => `<button data-st="${i}" class="${s === CUR ? 'on' : ''}">${esc(s)}</button>`).join('');
+  // 대표자로 뺀 사람도 줄은 보여 줌 (회색, 합계에서는 뺌)
+  const shown = (DATA.by.get(CUR) || []).filter(r => !r.zero), rs = up(shown);
+  const mask = s => s.length === 13 ? `${s.slice(0, 6)}-${s.slice(6, 7)}******` : s;
+  // 모든 줄이 같은 값(귀속·지급일·소득구분·세율)은 표 위에 한 번만
+  $('#detSame').innerHTML = `모든 줄 같음: 귀속 <b>${esc(YM())}</b> · 지급 <b>${esc(PAYD())}</b> · <b>${esc(SET.kind)}</b> · 세율 <b>${esc(RATE())}%</b>`;
+  const person = r => {
+    const n = r.items.length, span = n > 1 ? ` rowspan="${n}"` : '', top = n > 1 ? ' style="vertical-align:top"' : '';
+    const chk = [...(r.sumDiff ? [`소계 ${exact(r.p.amt)} ≠ 항목 합 ${exact(r.p.parts)}`] : r.gap ? [`소계 ${exact(r.p.amt)} · 항목 합 ${won(r.amt)}`] : []), ...r.issues, ...(r.p.note ? [`비고: ${r.p.note}`] : [])].map(esc).join(' · ');
+    return r.items.map((x, j) => `<tr class="${j === n - 1 ? '' : 'cont'}" style="${r.ex ? 'opacity:.45;text-decoration:line-through' : ''}">${j ? '' : `<td${span}${top}><label class="chk" style="margin:0"><input type="checkbox" data-own="${esc(okey(r.p))}" ${r.ex ? 'checked' : ''}>${r.ex ? '뺌' : ''}</label></td><td${span}${top}><b>${esc(r.p.name)}</b></td><td${span}${top} class="${r.p.rrn.length === 13 ? '' : 'bad'}" title="원본 ${r.p.sheet} ${r.p.row}행">${esc(mask(r.p.rrn)) || '없음'}</td>`}
+      <td class="hint" title="${esc(x.label)}">${esc(shortLabel(x.label))}</td><td class="n" ${x.amt !== x.src ? `title="원본 ${exact(x.src)} 반올림"` : ''}>${won(x.amt)}</td><td class="n">${won(x.it)}</td><td class="n">${won(x.lt)}</td><td class="n">${won(x.net)}</td>
+      ${j ? '' : `<td${span}${top} class="n">${n > 1 ? `<b>${won(r.net)}</b>` : ''}</td><td${span}${top} class="n">${r.p.net == null ? '-' : won(r.p.net)}</td><td${span}${top}>${r.ex ? '' : diffBadge(r)}</td><td${span}${top}>${chk}</td>`}</tr>`).join('');
+  };
+  $('#detTbl').innerHTML = `<thead><tr><th title="체크하면 업로드에서 뺌">대표자</th><th>소득자명</th><th>주민등록번호</th><th>항목</th><th class="n">지급총액</th><th class="n">소득세</th><th class="n">지방소득세</th><th class="n">차인지급액</th><th class="n">사람 차인 합</th><th class="n">엑셀 입금총계</th><th>비교</th><th>확인</th></tr></thead>
+  <tbody>${shown.map(person).join('')}</tbody>
+  <tfoot><tr class="tot"><td colspan="4">합계 ${rs.length}명 · ${nLines(rs)}줄${shown.length > rs.length ? ` <span class="hint">(대표자 ${shown.length - rs.length}명 뺌)</span>` : ''}</td><td class="n">${won(sumOf(rs, 'amt'))}</td><td class="n">${won(sumOf(rs, 'it'))}</td><td class="n">${won(sumOf(rs, 'lt'))}</td><td class="n">${won(sumOf(rs, 'net'))}</td><td class="n">${won(sumOf(rs, 'net'))}</td><td class="n">${won(rs.reduce((a, r) => a + (r.p.net ?? 0), 0))}</td><td colspan="2"></td></tr></tfoot>`;
+}
+
+// ── 엑셀 만들기 (원본 양식: 1행 제목, 2행 안내, 3행 머리글, 4행부터 자료) ──
+function rowVals({ r, x }, i) {
+  return [i + 1, YM(), PAYD(), r.p.name, r.p.rrn, SET.addr ? r.p.addr : '', '', SET.kind, '', x.amt, Number(RATE()), x.it, x.lt, r.foreign ? '1' : '', ''];
+}
+async function makeBook(store) {
+  const rs = up(DATA.by.get(store)).flatMap(r => r.items.map(x => ({ r, x })));
+  if (SET.xls) {
+    const aoa = [...(SET.noTop ? [] : [[TITLE], [GUIDE]]), HEAD, ...rs.map(rowVals)];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    if (!SET.noTop) ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 14 } }, { s: { r: 1, c: 0 }, e: { r: 1, c: 14 } }];
+    ws['!cols'] = WIDTH.map(wch => ({ wch }));
+    const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    return XLSX.write(wb, { bookType: 'biff8', type: 'array' });
+  }
+  const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Sheet1');
+  const font = { name: '굴림', size: 9 }, thin = { style: 'thin' }, border = { top: thin, left: thin, bottom: thin, right: thin };
+  WIDTH.forEach((w, i) => ws.getColumn(i + 1).width = w);
+  let hr = 1;
+  if (!SET.noTop) {
+    ws.mergeCells(1, 1, 1, 15); ws.mergeCells(2, 1, 2, 15);
+    Object.assign(ws.getCell(1, 1), { value: TITLE, font: { ...font, size: 11, bold: true }, alignment: { vertical: 'middle' } });
+    Object.assign(ws.getCell(2, 1), { value: GUIDE, font, alignment: { vertical: 'top', wrapText: true } });
+    ws.getRow(1).height = 48.75; ws.getRow(2).height = 181.5; hr = 3;
+  }
+  ws.getRow(hr).height = 23.25;
+  HEAD.forEach((h, i) => { const c = ws.getCell(hr, i + 1); c.value = h; c.font = { ...font, bold: true }; c.border = border;
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF99CCFF' } }; c.alignment = { horizontal: 'center', vertical: 'middle' }; });
+  // 양식 서식: 귀속·지급·주민번호 등은 텍스트(@), 금액은 #,##0, 세율은 숫자(3 = 3%)
+  const FMT = ['General', '@', '@', 'General', '@', '@', '@', 'General', '@', '#,##0', 'General', '#,##0', '#,##0', '@', 'General'];
+  rs.forEach((r, i) => {
+    const row = ws.getRow(hr + 1 + i); row.height = 18.75;
+    rowVals(r, i).forEach((v, c) => { const cell = row.getCell(c + 1); cell.value = v === '' ? null : v; cell.numFmt = FMT[c]; cell.font = font; cell.border = border; });
+  });
+  return wb.xlsx.writeBuffer();
+}
+const safe = s => String(s).replace(/[\\/:*?"<>|]/g, '_');
+const ext = () => SET.xls ? 'xls' : 'xlsx';
+const fname = s => `${safe(s)}_${YM()}_사업소득_항목별_업로드.${ext()}`;
+function save(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+async function dlStore(s) { save(new Blob([await makeBook(s)]), fname(s)); }
+async function dlZip() {
+  const z = new JSZip(), list = DATA.stores.filter(s => up(DATA.by.get(s)).length);
+  for (const s of list) z.file(fname(s), await makeBook(s));
+  save(await z.generateAsync({ type: 'blob' }), `${YM()}_매장별_사업소득_항목별_업로드.zip`);
+  toast(`${list.length}개 매장 파일을 묶었습니다`);
+}
+
+// 매장별 원천세 합계표 (원천세 신고서 사업소득 칸·지방소득세 신고와 맞춰 보기용)
+async function dlSummary() {
+  const wb = new ExcelJS.Workbook(), ws = wb.addWorksheet('매장별 합계');
+  const font = { name: '맑은 고딕', size: 10 }, thin = { style: 'thin' }, border = { top: thin, left: thin, bottom: thin, right: thin };
+  // 엑셀 값(신고하는 사람만 더함)과 신고 금액을 나란히: 소계 ↔ 지급총액, 입금총계 ↔ 차인지급액
+  const H = ['매장명', '인원', '업로드 줄', '엑셀 소계', '지급총액(신고)', '소계 차이', '소득세', '지방소득세', '세액계', '엑셀 입금총계', '차인지급액(신고)', '입금 차이', '대표자 뺌', '외국인'];
+  const MONEY = [4, 5, 6, 7, 8, 9, 10, 11, 12], DIFF = [6, 12];
+  ws.addRow([`${YM()} 귀속 · 지급 ${PAYD()} · 세율 ${RATE()}% · ${SET.kind}`]).font = { ...font, bold: true };
+  // 묶음 머리글: 무엇과 무엇을 비교하는지 [소계 확인] [세금] [입금 확인]
+  const GRP = [[1, 3, ''], [4, 6, '소계 확인 (엑셀 ↔ 신고 항목 합)'], [7, 9, '세금 (항목별 합)'], [10, 12, '입금 확인 (엑셀 ↔ 신고)'], [13, 14, '']];
+  ws.addRow([]); GRP.forEach(([a, b, t]) => { ws.getCell(2, a).value = t; if (b > a) ws.mergeCells(2, a, 2, b); });
+  ws.addRow(H);
+  const line = rs => {
+    // 엑셀 소계는 화면에 보이는 값(사람마다 원 단위로 반올림된 숫자)으로 더함 → 「딱 봤을 때」 같은지 비교
+    const xs = rs.reduce((a, r) => a + Math.round(Math.round(r.p.amt * 100) / 100), 0), xn = rs.reduce((a, r) => a + (r.p.net ?? 0), 0), noNet = rs.every(r => r.p.net == null);
+    const amt = sumOf(rs, 'amt'), it = sumOf(rs, 'it'), lt = sumOf(rs, 'lt'), net = sumOf(rs, 'net');
+    return [rs.length, nLines(rs), xs, amt, amt - xs, it, lt, it + lt, noNet ? '' : xn, net, noNet ? '' : net - xn];
+  };
+  for (const s of DATA.stores) {
+    const all = DATA.by.get(s), rs = up(all);
+    ws.addRow([s, ...line(rs), all.filter(r => r.ex && !r.zero).map(r => r.p.name).join(', '), rs.filter(r => r.foreign).length || '']);
+  }
+  const rs = up(DATA.rows);
+  ws.addRow(['합계', ...line(rs), '', rs.filter(r => r.foreign).length || '']);
+  const last = ws.rowCount;
+  const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+  // 묶음별 머리글 색: 확인 묶음은 연한 초록, 세금은 연한 베이지
+  const grpColor = i => (i >= 4 && i <= 6) || (i >= 10 && i <= 12) ? 'FFE2EFE7' : 'FFF8F5F0';
+  ws.eachRow({ includeEmpty: true }, (row, n) => { if (n < 2) return; for (let i = 1; i <= H.length; i++) {
+    const c = row.getCell(i), head = n === 2 || n === 3;
+    c.border = border; c.font = { ...font, bold: head || n === last };
+    if (head) { c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }; c.fill = fill(grpColor(i)); continue; }
+    if (MONEY.includes(i)) c.numFmt = '#,##0;[Red]-#,##0';
+    // 차이 칸: 0이면 초록, 아니면 빨강
+    if (DIFF.includes(i) && typeof c.value === 'number') c.fill = fill(Math.abs(c.value) < 0.001 ? 'FFC9E3D3' : 'FFF9DADA');
+    else if (n === last) c.fill = fill('FFF8F5F0');
+  } });
+  ws.getRow(2).height = 20; ws.getRow(3).height = 30;
+  [22, 6, 8, 14, 14, 10, 12, 12, 12, 14, 15, 10, 22, 7].forEach((w, i) => ws.getColumn(i + 1).width = w);
+  ws.views = [{ state: 'frozen', xSplit: 1, ySplit: 3 }];
+  save(new Blob([await wb.xlsx.writeBuffer()]), `${YM()}_매장별_사업소득_원천세_합계_항목별.xlsx`);
+}
+
+// ── 이벤트 ──
+const OPEN = new Set();
+$('#warns').addEventListener('toggle', e => { const k = e.target.dataset?.fold; if (k) e.target.open ? OPEN.add(k) : OPEN.delete(k); }, true);
+$('#btnSum').addEventListener('click', () => DATA.stores.length ? dlSummary() : toast('고른 내 거래처가 없습니다'));
+const refresh = () => { if (BOOK) build(); };
+$('#file').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; });
+const dz = $('#drop');
+['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+dz.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+$('#sheetList').addEventListener('change', e => { const s = e.target.dataset.s; if (!s) return; e.target.checked ? USE.add(s) : USE.delete(s); build(); });
+// 귀속월·지급일 칸을 지우면 빈 값으로 업로드되지 않게 되돌림
+let lastYm = $('#ym').value;
+$('#ym').addEventListener('change', e => { if (!e.target.value) e.target.value = lastYm; lastYm = e.target.value; setYm(lastYm); refresh(); });
+$('#pay').addEventListener('change', e => { PAY_EDITED = !!e.target.value; if (!e.target.value) setYm($('#ym').value); showRate(); refresh(); });
+$('#rateYmChk').addEventListener('change', e => { SET.rateYm = e.target.checked; persistSet(); showRate(); refresh(); toast(`세율 연도를 ${BASIS()}년월로 나눕니다`); });
+$('#rate').addEventListener('change', e => {
+  const v = Number(e.target.value), y = YEAR();
+  if (e.target.value === '' || !(v >= 0)) { e.target.value = RATE(); return; }
+  SET.rates[y] = v; persistSet(); showRate(); refresh(); toast(`${y}년 ${BASIS()}분 세율 ${v}%로 기억합니다`);
+});
+$('#kind').addEventListener('change', e => { SET.kind = e.target.value.trim() || DEF_KIND; e.target.value = SET.kind; persistSet(); refresh(); });
+[['#addrChk', 'addr'], ['#noTopChk', 'noTop'], ['#xlsChk', 'xls']].forEach(([id, k]) => $(id).addEventListener('change', e => { SET[k] = e.target.checked; persistSet(); }));
+$('#storeTbl').addEventListener('click', e => {
+  const d = e.target.closest('[data-dl]'); if (d) { dlStore(DATA.stores[+d.dataset.dl]); return; }
+  const tr = e.target.closest('[data-st]'); if (tr) { CUR = DATA.stores[+tr.dataset.st]; renderResult(); renderDetail(); }
+});
+async function loadOwners(f) {
+  try { OWNERS = readOwners(XLSX.read(await f.arrayBuffer(), { type: 'array' })); } catch (err) { OWNERS = []; }
+  if (!OWNERS.length) { toast('주민번호 열을 찾지 못했습니다'); return; }
+  if (BOOK) build(true);
+  $('#ownInfo').innerHTML = `<b style="color:var(--green)">${esc(f.name)} · 대표자 ${OWNERS.length}명 읽음${BOOK ? ` · 수수료 자료에서 ${OWN_HIT.length}명 뺌` : ' · 수수료 자료를 올리면 맞춥니다'}</b>`;
+}
+$('#ownFile').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadOwners(f); e.target.value = ''; });
+const oz = $('#ownDrop');
+['dragenter', 'dragover'].forEach(ev => oz.addEventListener(ev, e => { e.preventDefault(); oz.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => oz.addEventListener(ev, e => { e.preventDefault(); oz.classList.remove('over'); }));
+oz.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadOwners(f); });
+$('#detTbl').addEventListener('change', e => {
+  const k = e.target.dataset.own; if (!k) return;
+  OWN[k] = e.target.checked; persistOwn(); build();
+  toast(e.target.checked ? '대표자로 빼고 기억합니다' : '업로드에 다시 넣었습니다');
+});
+$('#storeChips').addEventListener('click', e => { const b = e.target.closest('[data-st]'); if (b) { CUR = DATA.stores[+b.dataset.st]; renderResult(); renderDetail(); } });
+$('#btnZip').addEventListener('click', () => DATA.stores.length ? dlZip() : toast('고른 내 거래처가 없습니다'));
+$('#mineChips').addEventListener('click', e => {
+  const b = e.target.closest('[data-m]'); if (!b) return;
+  const s = DATA.allStores[+b.dataset.m], cur = new Set(DATA.stores);
+  cur.has(s) ? cur.delete(s) : cur.add(s); setMine([...cur]);
+});
+$('#firmBtns').addEventListener('click', e => { const b = e.target.closest('[data-firm]'); if (b) setMine([...DATA.stores, ...DATA.firms.get(b.dataset.firm)]); });
+$('#mineQ').addEventListener('input', renderMine);
+$('#mineAll').addEventListener('click', () => setMine(DATA.allStores));
+$('#mineNone').addEventListener('click', () => setMine([]));
+</script>
+</body>
+</html>

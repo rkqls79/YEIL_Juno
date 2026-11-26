@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YEIL Juno 업무 도구</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #faf8f5;
+    --card-bg: #ffffff;
+    --card-hover: #fdfcfa;
+    --text: #332f29;
+    --text-sub: #948c80;
+    --border: #efeae2;
+    --accent: #5e6ad2;
+    --accent-soft: #ebecf9;
+    --shadow: 0 1px 2px rgba(60, 56, 49, 0.04), 0 1px 8px rgba(60, 56, 49, 0.03);
+    --shadow-hover: 0 2px 6px rgba(60, 56, 49, 0.06), 0 4px 16px rgba(60, 56, 49, 0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1b1a;
+      --card-bg: #242322;
+      --card-hover: #2a2927;
+      --text: #eaeaea;
+      --text-sub: #93928d;
+      --border: #35342f;
+      --accent: #8f9bff;
+      --accent-soft: #292a42;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+      --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 16vh 20px 60px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { width: 100%; max-width: 520px; }
+
+  header {
+    margin-bottom: 32px;
+    opacity: 0;
+    animation: fadeUp 0.5s ease forwards;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0 0 8px;
+    letter-spacing: -0.015em;
+  }
+  .sub { color: var(--text-sub); font-size: 13.5px; margin: 0; line-height: 1.6; }
+
+  .sections {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+  }
+
+  .section-title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin: 0 0 12px 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-sub);
+    letter-spacing: 0.01em;
+    opacity: 0;
+    animation: fadeUp 0.45s ease forwards;
+  }
+  .section-title .count {
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  ul.tool-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  ul.tool-list li {
+    opacity: 0;
+    animation: fadeUp 0.45s ease forwards;
+  }
+  ul.tool-list li:nth-child(1) { animation-delay: 0.04s; }
+  ul.tool-list li:nth-child(2) { animation-delay: 0.08s; }
+  ul.tool-list li:nth-child(3) { animation-delay: 0.12s; }
+  ul.tool-list li:nth-child(4) { animation-delay: 0.16s; }
+  ul.tool-list li:nth-child(5) { animation-delay: 0.20s; }
+
+  ul.tool-list a {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px 16px;
+    text-decoration: none;
+    color: inherit;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    transition: background 0.15s ease, box-shadow 0.2s ease, transform 0.2s cubic-bezier(.34,1.56,.64,1);
+  }
+  ul.tool-list a:hover {
+    background: var(--card-hover);
+    box-shadow: var(--shadow-hover);
+    transform: translateY(-2px);
+  }
+
+  .icon {
+    flex: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1);
+  }
+  ul.tool-list a:hover .icon {
+    transform: scale(1.12) rotate(-6deg);
+  }
+
+  /* a touch of color per item, kept soft */
+  li.c1 .icon { background: #ffe8d6; }
+  li.c2 .icon { background: #e3f2e1; }
+  li.c3 .icon { background: #dff1f7; }
+  li.c4 .icon { background: #fde7ef; }
+  li.c5 .icon { background: #eee3fb; }
+  li.c6 .icon { background: #fff3cf; }
+  li.c7 .icon { background: #e6ecfb; }
+  li.c8 .icon { background: #f6e3d6; }
+  @media (prefers-color-scheme: dark) {
+    li.c1 .icon, li.c2 .icon, li.c3 .icon, li.c4 .icon, li.c5 .icon, li.c6 .icon,
+    li.c7 .icon, li.c8 .icon { background: var(--accent-soft); }
+  }
+
+  .info { flex: 1; min-width: 0; }
+  .name {
+    font-size: 14.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: -0.005em;
+  }
+  .desc {
+    font-size: 12.5px;
+    color: var(--text-sub);
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .arrow {
+    flex: none;
+    color: var(--text-sub);
+    font-size: 14px;
+    opacity: 0;
+    transform: translateX(-3px);
+    transition: opacity 0.2s ease, transform 0.3s cubic-bezier(.34,1.56,.64,1);
+  }
+  ul.tool-list a:hover .arrow {
+    opacity: 1;
+    transform: translateX(0);
+    color: var(--accent);
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    header, .section-title, ul.tool-list li { animation: none; opacity: 1; }
+    ul.tool-list a, .icon, .arrow { transition: none; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>YEIL Juno 업무 도구</h1>
+      <p class="sub">급여·사업소득 매장별 위하고 업로드 도구 모음입니다</p>
+    </header>
+
+    <div class="sections">
+    <section>
+      <ul class="tool-list">
+      <li class="c1">
+        <a href="급여대장 매장별 위하고업로드/급여대장 매장별 위하고업로드.html">
+          <span class="icon">💰</span>
+          <span class="info">
+            <div class="name">급여대장 매장별 위하고업로드</div>
+            <div class="desc">급여대장을 매장별로 나눠 위하고 업로드 서식으로 변환합니다</div>
+          </span>
+          <span class="arrow">→</span>
+        </a>
+      </li>
+      <li class="c6">
+        <a href="사업소득 매장별 위하고업로드 항목별/사업소득 매장별 위하고업로드 항목별.html">
+          <span class="icon">🧾</span>
+          <span class="info">
+            <div class="name">사업소득 매장별 위하고업로드 · 항목별</div>
+            <div class="desc">수수료 항목마다 한 줄씩, 3.3%도 항목별로 나눠 매장별 업로드 엑셀을 만듭니다</div>
+          </span>
+          <span class="arrow">→</span>
+        </a>
+      </li>
+      </ul>
+    </section>
+    </div>
+
+  </div>
+  <div id="wm-709" style="position:fixed;bottom:14px;right:16px;z-index:9999;font-family:'Inter','Noto Sans KR',sans-serif;font-size:8.5pt;font-weight:700;color:var(--text-sub);opacity:0.5;letter-spacing:0.5px;pointer-events:none;user-select:none;">709._.b</div>
+</body>
+</html>

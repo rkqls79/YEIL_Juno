@@ -1,0 +1,729 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>급여대장 매장별 업로드</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+* { box-sizing: border-box; }
+:root{
+  --bg:#faf8f5; --card:#ffffff; --border:#efeae2; --text:#332f29; --sub:#766d62; --faint:#7a7166;
+  --accent:#7a8fa6; --sage:#7d9b8a; --rose:#a87878;
+  --sage-bg:#f1f6f3; --rose-bg:#f9f1f1; --sage-tag:#e2efe7;
+  --green:#3d6653; --red:#7a4040; --amber-bg:#f7f0e0; --amber-border:#ecdcb8; --amber-ink:#7a5600;
+  --soft:#f8f5f0; --shadow:0 2px 8px rgba(60,56,49,.06);
+}
+body{margin:0;font-family:'Malgun Gothic','맑은 고딕',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.55}
+@media screen{body{zoom:.95}}
+.wrap{max-width:1440px;margin:0 auto;padding:28px 24px 80px}
+header.app-header{margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--border);display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+header.app-header h1{font-size:20px;font-weight:700;margin:0 0 4px}
+header.app-header p{margin:0;color:var(--sub);font-size:12.5px}
+.rate-chip{display:inline-block;font-size:12px;background:var(--sage-bg);color:var(--green);border:1px solid var(--sage-tag);border-radius:20px;padding:3px 10px;font-weight:600;vertical-align:3px;margin-left:6px}
+.hidden{display:none!important}
+.hint{font-size:12.5px;color:var(--sub)}
+section.card{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:14px;box-shadow:var(--shadow)}
+section.card h2{font-size:15px;font-weight:700;margin:0}
+.slip-title{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--border);margin-bottom:12px;padding-bottom:10px}
+.grp-t{font-size:12.5px;font-weight:700;margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+.grp-t::before{content:"";width:4px;height:13px;border-radius:2px;background:var(--sage)}
+.num-badge{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--text);color:#fff;font-size:12px;margin-right:6px}
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.strip .it{background:var(--soft);border:1px solid var(--border);border-radius:10px;padding:8px 12px}
+.strip .it span{display:block;font-size:12px;color:var(--sub);font-weight:700}
+.strip .it b{display:block;font-size:18px}
+.strip .it.main{background:var(--sage-bg);border:1.5px solid var(--sage)}
+.strip .it.main b{color:var(--green)}
+.strip .it.bad{background:var(--rose-bg);border:1.5px solid var(--rose)}
+.strip .it.bad b{color:var(--red)}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:10px;max-height:520px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:var(--soft);color:var(--sub);font-weight:700;font-size:12px;padding:7px 8px;text-align:left;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:1}
+td{padding:5px 8px;border-bottom:1px solid var(--border);vertical-align:middle;white-space:nowrap}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+tr.tot td{font-weight:700;background:var(--soft)}
+tr.sel td{background:var(--sage-bg)}
+tbody tr.click{cursor:pointer}
+tbody tr.click:hover td{background:var(--soft)}
+.v{display:inline-block;font-size:11.5px;font-weight:700;border-radius:20px;padding:1px 8px;border:1px solid}
+.v.ok{color:var(--green);background:var(--sage-bg);border-color:var(--sage-tag)}
+.v.no{color:var(--red);background:var(--rose-bg);border-color:#ecd6d6}
+.v.mid{color:var(--amber-ink);background:var(--amber-bg);border-color:var(--amber-border)}
+.notes{margin:0;padding:0;list-style:none}
+.notes li{font-size:13px;padding:8px 11px;border-radius:8px;margin-bottom:6px;border:1px solid;line-height:1.6}
+.notes li.warn{color:var(--amber-ink);background:var(--amber-bg);border-color:var(--amber-border)}
+.notes li.info{background:var(--soft);border-color:var(--border)}
+.notes li.ok{color:var(--green);background:var(--sage-bg);border-color:var(--sage-tag)}
+td input.code{width:110px;height:28px;padding:0 7px;border:1px solid #ebe5dc;border-radius:6px;font:inherit;font-size:13px;color:var(--text)}
+td input.code.miss{background:var(--rose-bg);border-color:#ecd6d6}
+td input.code:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,143,166,.16)}
+select{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:13px;color:var(--text);background:#fff}
+select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(122,143,166,.16)}
+label.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;margin:2px 16px 6px 0}
+label.chk input{width:15px;height:15px;accent-color:var(--sage)}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--border);background:#fff;color:var(--text);padding:8px 14px;border-radius:8px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn:hover{background:var(--soft)}
+.btn.pri{background:var(--text);border-color:var(--text);color:#fff}
+.btn.sage{background:var(--sage);border-color:var(--sage);color:#fff}
+.btn.sm{padding:4px 9px;font-size:12px;border-radius:6px}
+.btn.big{padding:12px 24px;font-size:15px}
+.btn:disabled{opacity:.45;cursor:default}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.chips button{border:1.5px solid var(--border);background:#fff;border-radius:20px;padding:5px 12px;font:inherit;font-weight:700;font-size:13px;cursor:pointer;color:var(--sub)}
+.chips button.on{background:var(--sage-bg);border-color:var(--sage);color:var(--green)}
+.drop{border:2px dashed var(--border);border-radius:12px;padding:22px;text-align:center;background:var(--soft)}
+.drop.over{border-color:var(--sage);background:var(--sage-bg)}
+.mapgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:6px 18px}
+.mapgrid .m{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;padding:3px 0;border-bottom:1px dashed var(--border)}
+.mapgrid .m b{font-weight:700}
+.mapgrid .m.unk b{color:var(--red)}
+details.more{margin-top:4px}
+details.more>summary{cursor:pointer;font-weight:700;font-size:15px;list-style:none}
+details.more>summary::before{content:"▸ ";color:var(--sage)}
+details.more[open]>summary::before{content:"▾ "}
+.empty{padding:22px;text-align:center;color:var(--sub);font-size:13px}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--text);color:#fff;padding:10px 18px;border-radius:9px;font-size:13.5px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="app-header">
+    <div>
+      <h1>급여대장 매장별 위하고 업로드 <span class="rate-chip">위하고 급여대장 엑셀 업로드 양식</span></h1>
+      <p>받은 급여대장 엑셀 올리기 → 매장별로 나눔 → 매장마다 위하고 업로드 엑셀 내려받기</p>
+    </div>
+  </header>
+
+  <section class="card">
+    <div class="slip-title"><h2><span class="num-badge">1</span>급여대장 올리기</h2><span class="hint" id="srcInfo"></span></div>
+    <div class="drop" id="drop">
+      <label class="btn pri big">급여대장 엑셀 선택<input type="file" id="file" accept=".xlsx,.xls,.xlsm" hidden></label>
+      <p class="hint" style="margin:10px 0 0">또는 파일을 여기로 끌어 놓으세요. 머리글 행(번호·매장명·아이디·본명 …)은 자동으로 찾습니다.</p>
+    </div>
+    <div class="grp-t">위하고 사원코드</div>
+    <div class="toolbar drop" id="empDrop" style="margin:0;padding:12px 14px;text-align:left">
+      <label class="btn">위하고 사원 목록 엑셀 올리기 (여러 개 가능)<input type="file" id="empFile" accept=".xlsx,.xls,.xlsm,.csv" multiple hidden></label>
+      <span class="hint" id="empInfo">매장별로 저장한 사원 목록(사원코드·성명·주민번호)을 한 폴더에 모아 두고 <b>Ctrl+A로 전부 골라</b> 올리거나 여기로 끌어 놓으세요. <b>이름과 주민번호가 둘 다 정확히 같은 사람만</b> 사원코드를 채우고, 맞춘 코드는 기억되어 다음 달엔 새로 온 사람 것만 올리면 됩니다.</span>
+    </div>
+    <div id="sheetBox" class="hidden" style="margin-top:12px">
+      <div class="grp-t">읽을 시트</div>
+      <div id="sheetList"></div>
+    </div>
+  </section>
+
+  <section class="card hidden" id="resCard">
+    <div class="slip-title"><h2><span class="num-badge">2</span>매장별 결과</h2>
+      <button class="btn sage" id="btnZip">내 거래처 ZIP 내려받기</button>
+    </div>
+    <details class="more" id="mineBox" style="margin-bottom:12px">
+      <summary id="mineSum">내 거래처</summary>
+      <p class="hint" style="margin:8px 0">매장을 누르면 내 거래처 ↔ 아닌 곳으로 옮겨집니다. 내 거래처만 결과·내려받기에 나오고, 다음 달에도 기억합니다.</p>
+      <div class="toolbar"><input id="mineQ" placeholder="매장 이름 찾기" style="width:200px;height:32px;padding:0 10px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:13px"><button class="btn sm" id="mineAll">전체 내 거래처로</button><button class="btn sm" id="mineNone">전체 아닌 곳으로</button></div>
+      <div id="mineChips"></div>
+    </details>
+    <div class="strip" id="strip"></div>
+    <ul class="notes" id="warns"></ul>
+    <details class="more" id="srcBox" style="margin:4px 0 12px">
+      <summary id="srcSum">원본 엑셀 합계 확인</summary>
+      <p class="hint" style="margin:8px 0">받은 급여대장의 합계·소계 줄을 사람 줄로 다시 더해 비교합니다(전체 매장 기준). 사람별로는 항목 합 = 소득합계·공제합계, 소득합계 − 공제합계 = 지급액인지 봅니다(내 거래처만).</p>
+      <div id="srcBody"></div>
+    </details>
+    <div class="tbl-wrap" style="max-height:none">
+      <table id="storeTbl"></table>
+    </div>
+  </section>
+
+  <section class="card hidden" id="detCard">
+    <div class="slip-title"><h2><span class="num-badge">3</span>매장 미리보기</h2><span class="hint">업로드 파일에 들어갈 내용 그대로입니다. 금액이 있는 열만 표시합니다.</span></div>
+    <div class="chips" id="storeChips"></div>
+    <div class="tbl-wrap"><table id="detTbl"></table></div>
+  </section>
+
+  <section class="card">
+    <details class="more" id="mapBox">
+      <summary>항목 연결 (급여대장 → 위하고 양식)</summary>
+      <p class="hint" style="margin:8px 0 10px">바꾸면 바로 다시 계산되고 이 브라우저에 기억됩니다. <b>제외</b> = 급여 업로드에서 뺌(검증 금액에서도 뺌). <b>미연결</b> = 아직 정하지 않음(검증 불일치로 표시).</p>
+      <div class="toolbar">
+        <span class="hint">위하고 사원코드를 못 찾았을 때</span>
+        <select id="codeSrc"><option value="">비워 둠</option><option value="아이디">아이디 넣기</option><option value="번호">번호 넣기</option></select>
+        <button class="btn sm" id="btnClearCodes">기억한 사원코드 지우기</button>
+        <button class="btn sm" id="btnReset">기본값으로</button>
+        <label class="chk" style="margin:0 0 0 8px"><input type="checkbox" id="mergeChk">업로드 엑셀 머리글 1·2행 병합 (원본 양식 그대로)</label>
+      </div>
+      <div class="grp-t">위하고 급여항목 · 공제항목 (업로드 엑셀 열)</div>
+      <p class="hint" style="margin:0 0 6px">위하고 급여 화면의 항목을 한 줄에 하나씩 적습니다. 급여대장 항목과 이름이 같으면 저절로 연결됩니다.</p>
+      <div class="toolbar" style="align-items:flex-start">
+        <label class="hint">급여항목<br><textarea id="wpay" rows="6" style="width:220px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:13px"></textarea></label>
+        <label class="hint">공제항목<br><textarea id="wded" rows="6" style="width:220px;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font:inherit;font-size:13px"></textarea></label>
+      </div>
+      <div class="grp-t">지급 항목</div>
+      <div class="mapgrid" id="mapPay"></div>
+      <div class="grp-t">공제 항목</div>
+      <div class="mapgrid" id="mapDed"></div>
+    </details>
+  </section>
+
+  <section class="card">
+    <details class="more">
+    <summary>참고</summary>
+    <ul class="notes" style="margin-top:10px">
+      <li class="info">사원명 = 본명 · 부서 = 매장명 · 직급 = 호칭 · 직종 = 직군. 지급액계·공제액계·차인지급액은 연결된 항목으로 다시 더해 넣습니다.</li>
+      <li class="info">검증: 지급액계가 급여대장 <b>소득합계 − 제외 지급항목</b>과, 공제액계가 <b>공제합계 − 제외 공제항목</b>과 같은지 사람마다 확인합니다.</li>
+      <li class="warn">퇴직금·퇴직소득세·퇴직주민세는 기본값이 <b>제외</b>입니다. 퇴직금은 위하고 퇴직소득 쪽에서 따로 입력해야 합니다. 퇴직금이 있는 사람은 결과 위 알림에 이름이 나옵니다.</li>
+      <li class="warn">위하고 사원코드와 맞아야 업로드됩니다. 사원 목록을 올리거나, 매장 미리보기의 <b>사원코드 칸에 직접 입력</b>하세요. 직접 입력한 코드도 기억됩니다. 코드가 빈 사람은 미리보기에서 분홍색 칸으로 보입니다.</li>
+      <li class="info">급여대장·사원 목록은 이 브라우저 안에서만 읽고 어디로도 보내지 않습니다. 주민번호는 맞춰 볼 때만 쓰고 저장하지 않으며, 내려받는 업로드 엑셀에도 들어가지 않습니다. 기억하는 것은 <b>매장·이름·아이디 → 사원코드</b>, 내 거래처 목록, 항목 연결뿐입니다.</li>
+    </ul>
+    </details>
+  </section>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const won = n => (Math.round(n) || 0).toLocaleString('ko-KR');
+let toastT;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2400); }
+
+// ── 위하고 「급여대장 엑셀 업로드」 양식 열 ──
+// 수당 열 = 위하고에 등록된 급여항목 (위하고는 머리글 이름으로 항목을 맞춤). 화면에서 고칠 수 있음
+const DEF_WPAY = ['기본급', '상여', '고정연장근로수당', '연차수당', '점판수당', '식대', '연장근무수당', '휴일근무수당', '근로자의날'];
+// 공제 열 = 위하고에 등록된 공제항목
+const DEF_WDED = ['국민연금', '건강보험', '고용보험', '장기요양보험료', '국민연금공제', '고용보험공제', '연말정산', '기타공제', '코로나_건강', '두루누리(연금)', '두루누리(고용)', '소득세', '지방소득세'];
+const WKEY = 'payroll-wehago-items-v2';
+let WPAY = DEF_WPAY.slice(), WDED = DEF_WDED.slice();
+try {
+  const j = JSON.parse(localStorage.getItem(WKEY) || 'null');
+  if (j) { if (j.pay?.length) WPAY = j.pay; if (j.ded?.length) WDED = j.ded; }
+  else { const o = JSON.parse(localStorage.getItem('payroll-wehago-items-v1') || 'null'); if (Array.isArray(o) && o.length) WPAY = o; }
+} catch (e) {}
+function persistItems() { try { localStorage.setItem(WKEY, JSON.stringify({ pay: WPAY, ded: WDED })); } catch (e) {} }
+const INFO = [['A', '사원코드'], ['B', '사원명'], ['C', '부서'], ['D', '직급'], ['E', '직종']];
+const NAME = Object.fromEntries([...INFO, ['Q', '지급액계'], ['AD', '공제액계'], ['AE', '차인지급액']]);
+// 금액 열 순서. 위하고 목록에 없는 항목을 「같은 이름 항목」(MAP 값 '=')으로 연결하면 '+이름' 열로 뒤에 붙음
+let PAYK = WPAY.slice(), DEDK = WDED.slice(), AMT = [...PAYK, 'Q', ...DEDK, 'AD', 'AE'];
+const nm = k => k.startsWith('+') ? k.slice(1) : NAME[k] ?? k;
+function setLayout() {
+  PAYK = [...WPAY, ...DATA.payItems.filter(k => target(k, WPAY) === '+' + k).map(k => '+' + k)];
+  DEDK = [...WDED, ...DATA.dedItems.filter(k => target(k, WDED) === '+' + k).map(k => '+' + k)];
+  AMT = [...PAYK, 'Q', ...DEDK, 'AD', 'AE'];
+}
+// 급여대장 항목이 들어갈 열: 정한 연결 → 없으면 위하고에 같은 이름이 있을 때 그 열
+// 'X' 제외, '-항목' 그 항목에 음수로(두루누리처럼 공제를 줄이는 것), '+이름' 위하고 목록에 없는 새 열
+function target(k, list) {
+  const t = MAP[k];
+  if (t === 'X') return 'X';
+  if (t === '=' || (t === undefined || t === '') && list.includes(k)) return list.includes(k) ? k : '+' + k;
+  if (t && t.startsWith('-') && list.includes(t.slice(1))) return t;
+  return list.includes(t) ? t : '';
+}
+
+// ── 급여대장 항목 → 위하고 항목 기본 연결 (이름이 같으면 저절로 연결되므로 다른 것만) ──
+const DEF_MAP = {
+  '퇴직금': 'X', '성과급': '상여',
+  '국민': '국민연금', '건강': '건강보험', '장기': '장기요양보험료', '고용': '고용보험', '주민세': '지방소득세',
+  '두루누리(국민)': '-두루누리(연금)', '두루누리(고용)': '-두루누리(고용)', '퇴직소득세': 'X', '퇴직주민세': 'X',
+};
+const KEY = 'payroll-wehago-map-v2', CKEY = 'payroll-wehago-codes-v2';
+let MAP = { ...DEF_MAP }, CODE_SRC = '', MERGE = false;   // MERGE: 업로드 엑셀 머리글을 원본 양식처럼 병합할지
+try {
+  const j = JSON.parse(localStorage.getItem(KEY) || 'null');
+  if (j) {
+    // 예전 양식 열 글자(F~AC, -R 등)로 저장된 연결은 버리고 기본 연결로 다시 맞춤
+    const kept = Object.fromEntries(Object.entries(j.map || {}).filter(([, v]) => v === 'X' || !/^-?([A-W]|[YZ]|A[A-C])$/.test(v)));
+    MAP = { ...DEF_MAP, ...kept }; CODE_SRC = j.code ?? ''; MERGE = !!j.merge;
+  }
+} catch (e) {}
+function persist() { try { localStorage.setItem(KEY, JSON.stringify({ map: MAP, code: CODE_SRC, merge: MERGE })); } catch (e) {} }
+// 위하고 사원코드: 사람(매장|본명|아이디) → 코드. 주민번호는 저장하지 않음
+let CODES = {};
+try { CODES = JSON.parse(localStorage.getItem(CKEY) || '{}') || {}; } catch (e) {}
+function persistCodes() { try { localStorage.setItem(CKEY, JSON.stringify(CODES)); } catch (e) {} }
+// 매장마다 위하고 회사가 달라 같은 사람도 매장별 사원코드가 다를 수 있음 → 매장까지 묶어 기억
+const pkey = p => `${norm(p.store)}|${p.name}|${p.id}`;   // 매장명 띄어쓰기가 달라져도 같은 코드
+let EMP = [];   // 올린 위하고 사원 목록 (이번 화면에서만 사용)
+
+const norm = s => String(s ?? '').replace(/\s+/g, '');
+function num(v) {
+  if (typeof v === 'number') return v;
+  let s = String(v ?? '').trim(); if (!s || s === '-') return 0;
+  // 음수 표시: (1,000) · △1,000 · ▲1,000
+  let neg = /^\(.*\)$/.test(s) || /^[△▲]/.test(s); s = s.replace(/[(),원\s△▲₩]/g, '');
+  const n = Number(s); return isNaN(n) ? 0 : (neg ? -n : n);
+}
+
+// ── 읽기 ──
+let BOOK = null, FILE = '', SHEETS = [], USE = new Set(), DATA = null, CUR = null;
+
+function findHeader(rows) {
+  for (let i = 0; i < Math.min(rows.length, 30); i++) {
+    const h = rows[i].map(norm);
+    if (h.includes('매장명') && h.includes('본명')) return i;
+  }
+  return -1;
+}
+
+function loadFile(f) {
+  FILE = f.name;
+  const rd = new FileReader();
+  rd.onload = e => {
+    try { BOOK = XLSX.read(e.target.result, { type: 'array', cellDates: true }); }
+    catch (err) { toast('엑셀을 읽지 못했습니다'); return; }
+    SHEETS = BOOK.SheetNames.map(n => {
+      const rows = XLSX.utils.sheet_to_json(BOOK.Sheets[n], { header: 1, raw: true, defval: '' });
+      return { name: n, rows, hi: findHeader(rows) };
+    }).filter(s => s.hi >= 0);
+    if (!SHEETS.length) { toast('매장명·본명 머리글이 있는 시트를 찾지 못했습니다'); return; }
+    USE = new Set(SHEETS.map(s => s.name));
+    $('#sheetList').innerHTML = SHEETS.map(s => `<label class="chk"><input type="checkbox" data-s="${esc(s.name)}" checked>${esc(s.name)}</label>`).join('');
+    $('#sheetBox').classList.toggle('hidden', SHEETS.length < 2);
+    CUR = null; build(true);
+  };
+  rd.readAsArrayBuffer(f);
+}
+
+function parse() {
+  const people = [], titles = [], totalRows = [];
+  const payItems = new Set(), dedItems = new Set();
+  // 띄어쓰기만 다른 매장명은 같은 매장으로 묶음 (처음 나온 이름으로 표시)
+  const storeName = new Map(), canon = s => { const k = norm(s); if (!storeName.has(k)) storeName.set(k, s.replace(/\s+/g, ' ')); return storeName.get(k); };
+  for (const s of SHEETS) {
+    if (!USE.has(s.name)) continue;
+    const h = s.rows[s.hi].map(norm);
+    const ix = k => h.indexOf(k);
+    // 제목 (예: □ 2026.09 매니저 및 인턴 급여)
+    for (let i = 0; i < s.hi; i++) { const t = s.rows[i].map(String).join(' ').trim(); if (t) titles.push(t); }
+    // 지급 항목 = 호봉 다음 ~ 소득합계 앞, 공제 항목 = 소득합계 다음 ~ 공제합계 앞
+    const iSum = ix('소득합계'), iDed = ix('공제합계');
+    const iStart = ix('호봉') >= 0 ? ix('호봉') + 1 : ix('기본급');
+    const pay = [], ded = [];
+    if (iSum > iStart) for (let c = iStart; c < iSum; c++) if (h[c]) pay.push([h[c], c]);
+    if (iDed > iSum) for (let c = iSum + 1; c < iDed; c++) if (h[c]) ded.push([h[c], c]);
+    pay.forEach(p => payItems.add(p[0])); ded.forEach(p => dedItems.add(p[0]));
+    const g = (r, k) => { const c = ix(k); return c >= 0 ? r[c] : ''; };
+    // 원본 합계 확인용: 금액 열 (지급 항목 · 소득합계 · 공제 항목 · 공제합계 · 지급액)
+    const iNet = ix('지급액');
+    const numCols = [...pay, ...(iSum >= 0 ? [['소득합계', iSum]] : []), ...ded, ...(iDed >= 0 ? [['공제합계', iDed]] : []), ...(iNet >= 0 ? [['지급액', iNet]] : [])];
+    const sheetPeople = []; let blockStart = 0, lastStore = '';
+    for (let i = s.hi + 1; i < s.rows.length; i++) {
+      const r = s.rows[i];
+      const nm = String(g(r, '본명')).trim();
+      // 매장명 칸이 병합돼 있으면 첫 줄에만 값이 있음 → 빈 칸은 바로 위 매장으로
+      let raw = String(g(r, '매장명')).trim();
+      if (!raw && nm) raw = lastStore;
+      // 본명이 없고 금액이 있는 줄 = 엑셀의 합계·소계 줄
+      if (!nm || /합계|소계/.test(nm + raw + g(r, '번호'))) {
+        if (numCols.some(([, c]) => num(r[c]))) {
+          const label = r.map(String).filter(x => /[가-힣A-Za-z]/.test(x)).join(' ').trim() || '합계';
+          totalRows.push({ sheet: s.name, label, text: norm(r.join('')), sub: /소계/.test(label),
+            vals: Object.fromEntries(numCols.map(([k, c]) => [k, num(r[c])])), cols: numCols.map(x => x[0]),
+            all: sheetPeople.slice(), block: sheetPeople.slice(blockStart) });
+          blockStart = sheetPeople.length;
+        }
+        lastStore = '';
+        continue;
+      }
+      if (!raw) continue;
+      lastStore = raw;
+      const store = canon(raw);
+      const person = {
+        sheet: s.name, no: g(r, '번호'), id: String(g(r, '아이디')).trim(), name: nm, store,
+        job: String(g(r, '직군')).trim(), title: String(g(r, '호칭')).trim(), rrn: String(g(r, '주민등록번호')).replace(/\D/g, ''),
+        in: fmtD(g(r, '입사일')), out: fmtD(g(r, '퇴사일')), sout: fmtD(g(r, '살롱퇴사일')), note: String(g(r, '비고')).trim(), hist: String(g(r, '매장내역')).trim(),
+        pay: Object.fromEntries(pay.map(([k, c]) => [k, num(r[c])])),
+        ded: Object.fromEntries(ded.map(([k, c]) => [k, num(r[c])])),
+        srcSum: iSum >= 0 ? num(r[iSum]) : null, srcDed: iDed >= 0 ? num(r[iDed]) : null,
+        srcNet: iNet >= 0 ? num(r[iNet]) : null,
+        raw: Object.fromEntries(numCols.map(([k, c]) => [k, num(r[c])])),
+      };
+      people.push(person); sheetPeople.push(person);
+    }
+  }
+  return { people, titles, payItems: [...payItems], dedItems: [...dedItems], totalRows };
+}
+
+function convert(p) {
+  const o = Object.fromEntries(AMT.map(k => [k, 0]));
+  const saved = CODES[pkey(p)];
+  o.A = saved || (CODE_SRC === '아이디' ? p.id : CODE_SRC === '번호' ? String(p.no ?? '') : '');
+  o.B = p.name; o.C = p.store; o.D = p.title; o.E = p.job;
+  let exPay = 0, exDed = 0; const unmapped = [];
+  for (const [k, v] of Object.entries(p.pay)) {
+    const t = target(k, WPAY);
+    if (t === 'X') exPay += v; else if (t) o[t] += v; else if (v) unmapped.push(k);
+  }
+  for (const [k, v] of Object.entries(p.ded)) {
+    const t = target(k, WDED);
+    if (t === 'X') exDed += v;
+    else if (t.startsWith('-')) o[t.slice(1)] -= Math.abs(v);
+    else if (t) o[t] += v; else if (v) unmapped.push(k);
+  }
+  o.Q = PAYK.reduce((a, c) => a + o[c], 0);
+  o.AD = DEDK.reduce((a, c) => a + o[c], 0);
+  o.AE = o.Q - o.AD;
+  const okPay = p.srcSum == null || Math.round(o.Q) === Math.round(p.srcSum - exPay);
+  const okDed = p.srcDed == null || Math.round(o.AD) === Math.round(p.srcDed - exDed);
+  // 업로드할 금액이 하나도 없는 줄(예: 퇴직금만 받은 퇴사자)은 업로드 파일에서 뺌
+  const zero = AMT.every(k => !Math.round(o[k]));
+  return { o, ok: okPay && okDed, okPay, okDed, diffPay: o.Q - (p.srcSum - exPay), diffDed: o.AD - (p.srcDed - exDed), unmapped, p, hasCode: !!saved, zero };
+}
+
+// ── 위하고 사원 목록 → 사원코드 맞추기 (이름 + 주민번호 13자리 모두 일치) ──
+// 매장별로 따로 저장한 파일을 여러 개 한 번에 올릴 수 있음. 올린 목록은 합쳐서 씀
+let EMP_FILES = [];
+async function loadEmpFiles(files) {
+  const bad = [];
+  for (const f of files) {
+    try { readEmp(XLSX.read(await f.arrayBuffer(), { type: 'array' }), f.name); } catch (err) {}
+    // 같은 파일을 다시 올려도 읽은 사람 수로 판단 (전체 수 비교는 다시 올릴 때 틀림)
+    if (!EMP.some(e => e.file === f.name)) { bad.push(f.name); EMP_FILES = EMP_FILES.filter(x => x !== f.name); }
+    else if (!EMP_FILES.includes(f.name)) EMP_FILES.push(f.name);
+  }
+  if (!EMP.length) { toast('사원코드·성명 머리글을 찾지 못했습니다'); return; }
+  const n = matchCodes();
+  $('#empInfo').innerHTML = `<b style="color:var(--green)">사원 목록 ${EMP_FILES.length}개 파일 · ${EMP.length}명 읽음${DATA.people ? ` · 내 거래처 ${n}명 사원코드 채움` : ' · 급여대장을 올리면 맞춥니다'}</b>`
+    + (bad.length ? ` <span style="color:var(--red)">못 읽은 파일: ${bad.map(esc).join(', ')}</span>` : '');
+  if (BOOK) build();
+}
+function readEmp(wb, file) {
+  // 같은 파일을 다시 올리면 앞서 읽은 것은 지우고 새로 읽음
+  EMP = EMP.filter(e => e.file !== file);
+  {
+    for (const n of wb.SheetNames) {
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: false, defval: '' });
+      for (let i = 0; i < Math.min(rows.length, 30); i++) {
+        const h = rows[i].map(norm);
+        const ic = h.findIndex(x => /^(사원코드|사번|코드|사원번호)$/.test(x));
+        const inm = h.findIndex(x => /^(성명|사원명|이름|본명)$/.test(x));
+        if (ic < 0 || inm < 0) continue;
+        const ir = h.findIndex(x => /주민/.test(x));
+        for (const r of rows.slice(i + 1)) {
+          const code = String(r[ic]).trim(), name = String(r[inm]).trim();
+          if (code && name) EMP.push({ code, name, rrn: ir >= 0 ? String(r[ir]).replace(/\D/g, '') : '', file });
+        }
+        break;
+      }
+    }
+  }
+}
+// 파일 이름에 든 매장명 (여럿이면 가장 긴 이름)
+function storeOfFile(f) {
+  const n = norm(f);
+  return [...new Set(DATA.people.map(p => p.store))].filter(s => n.includes(norm(s))).sort((a, b) => b.length - a.length)[0] || '';
+}
+function matchCodes() {
+  if (!EMP.length || !DATA.people) return 0;
+  let n = 0;
+  for (const p of DATA.people) {
+    // 이름과 주민번호 13자리가 모두 같을 때만 맞춤
+    if (p.rrn.length !== 13) continue;
+    let hit = EMP.filter(e => e.rrn === p.rrn && e.name === p.name);
+    // 파일 이름에 다른 매장명이 들어간 목록은 쓰지 않음 (옮겨 간 사람에게 전 매장 코드가 들어가지 않게)
+    hit = hit.filter(e => { const s = storeOfFile(e.file); return !s || s === p.store; });
+    const codes = [...new Set(hit.map(e => e.code))];
+    if (codes.length === 1) { CODES[pkey(p)] = codes[0]; if (isMine(p.store)) n++; }
+  }
+  persistCodes();
+  return n;
+}
+
+// match: 새 급여대장을 읽을 때만 사원 목록으로 다시 맞춤 (직접 고친 코드가 되돌아가지 않게)
+function build(match) {
+  DATA = parse();
+  if (match) matchCodes();
+  const ym = (DATA.titles.join(' ').match(/(20\d{2})\s*[.\-년\/]\s*(\d{1,2})/) || []);
+  DATA.ym = ym[1] ? `${ym[1]}.${ym[2].padStart(2, '0')}` : '';
+  $('#srcInfo').textContent = `${FILE} · ${DATA.titles[0] || ''}`;
+  renderMap(); setLayout();
+  const rows = DATA.people.map(convert);
+  DATA.allStores = [];
+  const by = new Map();
+  for (const r of rows) { if (!by.has(r.o.C)) { by.set(r.o.C, []); DATA.allStores.push(r.o.C); } by.get(r.o.C).push(r); }
+  DATA.by = by;
+  // 내 거래처만 남김 (화면·합계·내려받기 모두)
+  DATA.stores = DATA.allStores.filter(isMine);
+  DATA.rows = rows.filter(r => isMine(r.o.C));
+  if (!CUR || !DATA.stores.includes(CUR)) CUR = DATA.stores[0];
+  renderMine(); renderSource(); renderResult(); renderDetail();
+}
+
+// ── 내 거래처 고르기: 고른 매장만 기억. 처음 보는 매장은 빠진 채로 「새」 묶음에 표시 ──
+const MKEY = 'payroll-wehago-mine-v1';
+let MINE = null, KNOWN = new Set();
+// 매장명은 띄어쓰기를 뺀 이름으로 기억 (다음 달 급여대장에서 띄어쓰기가 달라져도 같은 매장)
+try { const j = JSON.parse(localStorage.getItem(MKEY) || 'null'); if (j) { MINE = new Set(j.mine.map(norm)); KNOWN = new Set(j.known.map(norm)); } } catch (e) {}
+function persistMine() { try { localStorage.setItem(MKEY, JSON.stringify({ mine: [...MINE], known: [...KNOWN] })); } catch (e) {} }
+const isMine = s => !!MINE && MINE.has(norm(s));
+function setMine(list) {
+  MINE = new Set(list.map(norm));
+  DATA.allStores.forEach(s => KNOWN.add(norm(s)));
+  persistMine(); build();
+}
+function renderMine() {
+  const all = DATA.allStores, fresh = all.filter(s => !KNOWN.has(norm(s)));
+  $('#mineSum').innerHTML = `내 거래처 <b>${DATA.stores.length}곳</b> <span class="hint">· 아닌 곳 ${all.length - DATA.stores.length - fresh.length}곳${fresh.length ? ` · <span style="color:var(--red)">새 매장 ${fresh.length}곳</span>` : ''} (급여대장 전체 ${all.length}곳)</span>`;
+  const q = norm($('#mineQ').value), cnt = s => DATA.by.get(s).length;
+  const chip = s => `<button data-m="${all.indexOf(s)}" class="${isMine(s) ? 'on' : ''}" ${q && !norm(s).includes(q) ? 'hidden' : ''}>${esc(s)} <span class="hint">${cnt(s)}</span></button>`;
+  const grp = (title, list, style) => list.length ? `<div class="grp-t" style="${style || ''}">${title} ${list.length}곳</div><div class="chips">${list.map(chip).join('')}</div>` : '';
+  const ko = (a, b) => a.localeCompare(b, 'ko');
+  $('#mineChips').innerHTML =
+    grp('<span class="v no">새</span> 처음 보는 매장 — 내 거래처면 누르세요', fresh.slice().sort(ko)) +
+    grp('내 거래처', DATA.stores.slice().sort(ko)) +
+    grp('내 거래처 아님', all.filter(s => !isMine(s) && !fresh.includes(s)).sort(ko), 'opacity:.75');
+  if (fresh.length) $('#mineBox').open = true;
+}
+
+// ── 특이사항: 퇴직금 · 입사(이번 달) · 퇴사 · 비고 ──
+function fmtD(v) {
+  if (v === '' || v == null) return '';
+  if (v instanceof Date) { const d = new Date(v.getTime() + 43200000); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+  if (typeof v === 'number') { const d = XLSX.SSF.parse_date_code(v); return d ? `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}` : String(v); }
+  const m = String(v).trim().match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  return m ? `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}` : String(v).trim();
+}
+// 같은 사람: 주민번호가 있으면 주민번호로, 없으면 이름+아이디로
+const samePerson = (a, b) => a.rrn.length === 13 && b.rrn.length === 13 ? a.rrn === b.rrn : a.name === b.name && a.id === b.id;
+function specials(r) {
+  const p = r.p, out = [], ym = DATA.ym.replace('.', '-');
+  for (const [k, v] of Object.entries(p.pay)) if (/퇴직금/.test(k) && v) out.push(`퇴직금 ${won(v)}${MAP[k] === 'X' ? ' (업로드 제외 → 퇴직소득 따로 입력)' : ''}`);
+  if (ym && p.in.startsWith(ym)) out.push(`입사 ${p.in}`);
+  if (p.out) out.push(`퇴사 ${p.out}`);
+  if (p.sout && p.sout !== p.out) out.push(`살롱퇴사 ${p.sout}`);
+  if (r.zero) out.push('급여 0원 → 업로드 파일에서 뺌');
+  if (p.note) out.push(`비고: ${p.note}`);
+  const others = DATA.people.filter(q => q !== p && q.store !== p.store && samePerson(p, q)).map(q => q.store);
+  if (others.length) out.push(`다른 매장에도 있음: ${[...new Set(others)].join(', ')} → 매장별 사원코드 확인`);
+  if (p.hist && norm(p.hist) !== norm(p.store)) out.push(`매장내역: ${p.hist}`);
+  return out;
+}
+
+// ── 원본 엑셀 합계 확인: 엑셀에 적힌 합계를 사람 줄로 다시 더해 비교 ──
+function checkSource() {
+  const sum = (ps, k) => ps.reduce((a, p) => a + (p.raw[k] || 0), 0);
+  const stores = [...new Set(DATA.people.map(p => p.store))].sort((a, b) => b.length - a.length);
+  const totals = DATA.totalRows.map(tr => {
+    const st = stores.find(s => tr.text.includes(norm(s)));
+    const ps = st ? tr.all.filter(p => p.store === st) : tr.sub ? tr.block : tr.all;
+    const diffs = tr.cols.map(k => ({ k, xl: tr.vals[k], calc: sum(ps, k) })).filter(d => Math.round(d.xl) !== Math.round(d.calc));
+    return { tr, n: ps.length, diffs, get: k => tr.vals[k] };
+  });
+  // 사람별: 항목을 더한 값 = 소득합계·공제합계, 소득합계 − 공제합계 = 지급액 (내 거래처만)
+  const persons = [];
+  for (const p of DATA.people.filter(p => isMine(p.store))) {
+    // 「음수로」 연결한 공제(두루누리 등)는 공제합계에서 빠지는 금액으로 봄
+    const out = [], sp = Object.values(p.pay).reduce((a, v) => a + v, 0),
+      sd = Object.entries(p.ded).reduce((a, [k, v]) => a + (target(k, WDED).startsWith('-') ? -Math.abs(v) : v), 0);
+    if (p.srcSum != null && Math.round(sp) !== Math.round(p.srcSum)) out.push(`소득합계 엑셀 ${won(p.srcSum)} / 항목 더하면 ${won(sp)}`);
+    if (p.srcDed != null && Math.round(sd) !== Math.round(p.srcDed)) out.push(`공제합계 엑셀 ${won(p.srcDed)} / 항목 더하면 ${won(sd)}`);
+    if (p.srcNet != null && p.srcSum != null && p.srcDed != null && Math.round(p.srcSum - p.srcDed) !== Math.round(p.srcNet)) out.push(`지급액 엑셀 ${won(p.srcNet)} / 소득합계−공제합계 ${won(p.srcSum - p.srcDed)}`);
+    if (out.length) persons.push({ p, out });
+  }
+  return { totals, persons, bad: totals.filter(t => t.diffs.length).length + persons.length };
+}
+
+function renderSource() {
+  const c = DATA.src = checkSource();
+  $('#srcSum').innerHTML = `원본 엑셀 합계 확인 <span class="hint">— 합계 줄 ${c.totals.length}개 · 내 거래처 ${DATA.rows.length}명</span> ${c.bad ? `<span class="v no">틀린 곳 ${c.bad}</span>` : '<span class="v ok">모두 맞음</span>'}`;
+  const cell = (t, k) => t.tr.cols.includes(k) ? (t.diffs.some(d => d.k === k) ? `<b style="color:var(--red)">${won(t.get(k))}</b>` : won(t.get(k))) : '-';
+  let h = c.totals.length ? `<div class="tbl-wrap" style="margin-bottom:10px"><table><thead><tr><th>시트</th><th>엑셀의 합계 줄</th><th class="n">대상 인원</th><th class="n">소득합계</th><th class="n">공제합계</th><th class="n">지급액</th><th>결과</th></tr></thead><tbody>${
+    c.totals.map(t => `<tr><td>${esc(t.tr.sheet)}</td><td>${esc(t.tr.label)}</td><td class="n">${t.n}</td><td class="n">${cell(t, '소득합계')}</td><td class="n">${cell(t, '공제합계')}</td><td class="n">${cell(t, '지급액')}</td>
+      <td>${t.diffs.length ? t.diffs.map(d => `<span class="v no">${esc(d.k)}</span> 엑셀 ${won(d.xl)} / 다시 더함 ${won(d.calc)} (차이 ${won(d.xl - d.calc)})`).join('<br>') : '<span class="v ok">맞음</span>'}</td></tr>`).join('')
+  }</tbody></table></div>` : '<p class="hint">엑셀에 합계 줄이 없어 사람별 계산만 확인했습니다.</p>';
+  h += c.persons.length ? `<ul class="notes">${c.persons.map(({ p, out }) => `<li class="warn">${esc(p.store)} <b>${esc(p.name)}</b> — ${out.map(esc).join(' · ')}</li>`).join('')}</ul>`
+    : '<p class="hint" style="margin:0">사람별: 항목을 더한 값이 소득합계·공제합계와 같고, 소득합계 − 공제합계 = 지급액입니다.</p>';
+  $('#srcBody').innerHTML = h;
+  if (c.bad) $('#srcBox').open = true;
+}
+
+// ── 화면 ──
+// 급여대장 항목 하나의 연결 선택 상자 (항목 연결 칸과 미연결 알림에서 같이 씀)
+function mapSelect(k) {
+  const ded = DATA.dedItems.includes(k) && !DATA.payItems.includes(k), list = ded ? WDED : WPAY;
+  const t = target(k, list), sel = t.startsWith('+') ? '=' : t;
+  // 공제는 「음수로」 선택지도 둠 (두루누리처럼 공제를 줄이는 금액)
+  return `<select data-k="${esc(k)}">${['<option value="">미연결</option>', '<option value="X">제외</option>', `<option value="=">${list.includes(k) ? '같은 이름 항목' : '이 이름으로 새 열 (위하고에 항목을 새로 만든 경우)'}</option>`,
+    ...(ded ? WDED.map(n => `<option value="-${esc(n)}">${esc(n)} (음수로)</option>`) : []),
+    ...list.map(n => `<option value="${esc(n)}">${esc(n)}</option>`)]
+    .join('').replace(`value="${esc(sel)}"`, `value="${esc(sel)}" selected`)}</select>`;
+}
+function renderMap() {
+  const row = k => `<div class="m ${mapSelect(k).includes('value="" selected') ? 'unk' : ''}"><b>${esc(k)}</b>${mapSelect(k)}</div>`;
+  $('#mapPay').innerHTML = DATA.payItems.map(row).join('') || '<div class="hint">급여대장을 올리면 표시됩니다</div>';
+  $('#wpay').value = WPAY.join('\n'); $('#wded').value = WDED.join('\n');
+  $('#mapDed').innerHTML = DATA.dedItems.map(row).join('') || '<div class="hint">급여대장을 올리면 표시됩니다</div>';
+  $('#codeSrc').value = CODE_SRC;
+}
+
+function totals(rows) { const t = Object.fromEntries(AMT.map(k => [k, 0])); rows.forEach(r => AMT.forEach(k => t[k] += r.o[k])); return t; }
+
+function renderResult() {
+  $('#resCard').classList.remove('hidden'); $('#detCard').classList.remove('hidden');
+  const all = totals(DATA.rows), bad = DATA.rows.filter(r => !r.ok);
+  $('#strip').innerHTML = `
+    <div class="it"><span>귀속</span><b>${esc(DATA.ym || '-')}</b></div>
+    <div class="it"><span>매장 / 인원</span><b>${DATA.stores.length}곳 · ${DATA.rows.length}명</b></div>
+    <div class="it"><span>지급액계</span><b>${won(all.Q)}</b></div>
+    <div class="it"><span>공제액계</span><b>${won(all.AD)}</b></div>
+    <div class="it main"><span>차인지급액</span><b>${won(all.AE)}</b></div>
+    <div class="it ${DATA.src.bad ? 'bad' : 'main'}"><span>원본 엑셀 합계</span><b>${DATA.src.bad ? `틀린 곳 ${DATA.src.bad}` : '모두 맞음'}</b></div>
+    <div class="it ${bad.length ? 'bad' : 'main'}"><span>업로드 변환 검증</span><b>${bad.length ? `불일치 ${bad.length}명` : '모두 일치'}</b></div>`;
+  const w = [];
+  const unm = [...new Set(DATA.rows.flatMap(r => r.unmapped))];
+  if (unm.length) w.push(`<li class="warn"><b>위하고 항목이 정해지지 않은 금액이 있습니다.</b> 넣을 위하고 항목을 고르세요 (기억됨).<br>${
+    unm.map(k => `<span style="display:inline-flex;align-items:center;gap:6px;margin:6px 14px 0 0"><b>${esc(k)}</b> ${won(DATA.rows.reduce((a, r) => a + (r.p.pay[k] || r.p.ded[k] || 0), 0))}원 → ${mapSelect(k)}</span>`).join('')}</li>`);
+  const sp = DATA.rows.map(r => [r, specials(r)]).filter(x => x[1].length);
+  if (sp.length) w.push(`<li class="warn"><b>특이사항 ${sp.length}명</b><br>${sp.map(([r, s]) => `· ${esc(r.o.C)} <b>${esc(r.o.B)}</b> — ${s.map(esc).join(' · ')}`).join('<br>')}</li>`);
+  if (bad.length) w.push(`<li class="warn">검증 불일치: ${bad.map(r => `${esc(r.o.C)} ${esc(r.o.B)}${r.okPay ? '' : ` (지급 ${won(r.diffPay)})`}${r.okDed ? '' : ` (공제 ${won(r.diffDed)})`}`).join(' · ')}</li>`);
+  if (!DATA.rows.length) w.push('<li class="info">고른 내 거래처가 없습니다. 위 「내 거래처」를 펼쳐 매장을 눌러 주세요.</li>');
+  else if (!w.length) w.push('<li class="ok">특이사항 없음 · 모든 사람의 지급액계·공제액계가 급여대장과 맞습니다.</li>');
+  $('#warns').innerHTML = w.join('');
+  $('#storeTbl').innerHTML = `<thead><tr><th>매장명</th><th class="n">인원</th><th class="n">지급액계</th><th class="n">공제액계</th><th class="n">차인지급액</th><th>검증</th><th></th></tr></thead><tbody>${
+    DATA.stores.map((s, i) => { const rs = DATA.by.get(s), t = totals(rs), nb = rs.filter(r => !r.ok).length;
+      const up = rs.filter(r => !r.zero), nc = up.filter(r => !r.hasCode).length, nz = rs.length - up.length;
+      return `<tr class="click ${s === CUR ? 'sel' : ''}" data-st="${i}"><td><b>${esc(s)}</b></td><td class="n">${up.length}${nz ? ` <span class="hint">(0원 ${nz} 뺌)</span>` : ''}</td><td class="n">${won(t.Q)}</td><td class="n">${won(t.AD)}</td><td class="n"><b>${won(t.AE)}</b></td>
+        <td>${nb ? `<span class="v no">불일치 ${nb}</span>` : '<span class="v ok">일치</span>'}${nc ? ` <span class="v mid">코드 빈칸 ${nc}</span>` : ''}</td><td><button class="btn sm" data-dl="${i}">엑셀 내려받기</button></td></tr>`; }).join('')
+  }</tbody><tfoot><tr class="tot"><td>합계</td><td class="n">${DATA.rows.length}</td><td class="n">${won(all.Q)}</td><td class="n">${won(all.AD)}</td><td class="n">${won(all.AE)}</td><td></td><td></td></tr></tfoot>`;
+}
+
+function renderDetail() {
+  $('#storeChips').innerHTML = DATA.stores.map((s, i) => `<button data-st="${i}" class="${s === CUR ? 'on' : ''}">${esc(s)}</button>`).join('');
+  const rs = DATA.by.get(CUR) || [];
+  const used = AMT.filter(k => ['Q', 'AD', 'AE'].includes(k) || DATA.rows.some(r => r.o[k]));
+  const t = totals(rs);
+  $('#detTbl').innerHTML = `<thead><tr>${INFO.map(([c, n]) => `<th>${n}</th>`).join('')}${used.map(k => `<th class="n">${esc(nm(k))}</th>`).join('')}<th>검증</th></tr></thead>
+  <tbody>${rs.map(r => `<tr><td><input class="code ${r.hasCode ? '' : 'miss'}" data-pk="${esc(pkey(r.p))}" value="${esc(r.hasCode ? r.o.A : '')}" placeholder="${esc(r.o.A || '입력')}"></td>${INFO.slice(1).map(([c]) => `<td>${esc(r.o[c])}</td>`).join('')}${used.map(k => `<td class="n">${['Q', 'AD', 'AE'].includes(k) ? `<b>${won(r.o[k])}</b>` : won(r.o[k])}</td>`).join('')}
+    <td>${r.zero ? '<span class="v mid">0원 · 업로드 제외</span> ' : ''}${r.ok ? '<span class="v ok">일치</span>' : `<span class="v no">${r.okPay ? '' : '지급 ' + won(r.diffPay) + ' '}${r.okDed ? '' : '공제 ' + won(r.diffDed)}</span>`}</td></tr>`).join('')}</tbody>
+  <tfoot><tr class="tot"><td colspan="5">합계</td>${used.map(k => `<td class="n">${won(t[k])}</td>`).join('')}<td></td></tr></tfoot>`;
+}
+
+// ── 엑셀 만들기 (원본 양식: 1~2행 머리글, 3행부터 자료, 마지막 합계행 A:E 병합) ──
+async function makeBook(store) {
+  const rs = DATA.by.get(store).filter(r => !r.zero);
+  const COLS = ['A', 'B', 'C', 'D', 'E', ...AMT];
+  const wb = new ExcelJS.Workbook(); const ws = wb.addWorksheet('Sheet1');
+  const at = (c, r) => ws.getCell(r, COLS.indexOf(c) + 1);   // 열 위치는 순서로 (같은 이름 항목이 끼면 밀림)
+  const font = { name: '맑은 고딕', size: 9 }, bfont = { ...font, bold: true };
+  const thin = { style: 'thin' }, border = { top: thin, left: thin, bottom: thin, right: thin };
+  const fill = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+  COLS.forEach((c, i) => ws.getColumn(i + 1).width = c === 'A' ? 14 : 11);
+  for (const [c, n] of INFO) at(c, 1).value = n;
+  at(PAYK[0], 1).value = '수당'; at(DEDK[0], 1).value = '공제'; at('AE', 1).value = '차인지급액';
+  for (const k of AMT) if (k !== 'AE') at(k, 2).value = nm(k);
+  if (MERGE) {
+    ['A', 'B', 'C', 'D', 'E', 'AE'].forEach(c => { const i = COLS.indexOf(c) + 1; ws.mergeCells(1, i, 2, i); });
+    ws.mergeCells(1, COLS.indexOf(PAYK[0]) + 1, 1, COLS.indexOf('Q') + 1);
+    ws.mergeCells(1, COLS.indexOf(DEDK[0]) + 1, 1, COLS.indexOf('AD') + 1);
+  } else {
+    // 병합 없이: 2행에 모든 열 이름을 채운 뒤 1행(수당·공제 구분 줄)을 없앰 → 머리글 1줄
+    for (const [c, n] of INFO) at(c, 2).value = n;
+    at('AE', 2).value = '차인지급액';
+  }
+  for (const r of [1, 2]) { ws.getRow(r).height = 21; for (const c of COLS) {
+    const cell = at(c, r);
+    cell.font = bfont; cell.border = border; cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.fill = fill(r === 2 && AMT.includes(c) && c !== 'AE' ? 'FF99CCFF' : 'FFFFFF99');
+  } }
+  if (!MERGE) ws.spliceRows(1, 1);
+  let rn = MERGE ? 3 : 2;
+  for (const r of rs) {
+    for (const c of COLS) {
+      const cell = at(c, rn), isAmt = AMT.includes(c);
+      cell.value = isAmt ? Math.round(r.o[c]) : String(r.o[c] ?? '');
+      cell.font = font; cell.border = border;
+      cell.numFmt = isAmt ? '#,##0' : '@';
+      cell.alignment = { horizontal: isAmt ? 'right' : 'left', vertical: 'middle' };
+    }
+    rn++;
+  }
+  // 합계 줄은 원본 양식(병합) 모드에서만 넣음 — 기본은 사람 줄만
+  if (!MERGE) return wb.xlsx.writeBuffer();
+  const t = totals(rs);
+  at('A', rn).value = '합계'; ws.mergeCells(rn, 1, rn, 5);
+  for (const c of COLS) {
+    const cell = at(c, rn), isAmt = AMT.includes(c);
+    if (isAmt) { cell.value = Math.round(t[c]); cell.numFmt = '#,##0'; }
+    cell.font = bfont; cell.border = border; cell.fill = fill('FFABCCF8');
+    cell.alignment = { horizontal: isAmt ? 'right' : 'center', vertical: 'middle' };
+  }
+  return wb.xlsx.writeBuffer();
+}
+const safe = s => String(s).replace(/[\\/:*?"<>|]/g, '_');
+const fname = s => `${safe(s)}_${DATA.ym ? DATA.ym + '_' : ''}급여대장_업로드.xlsx`;
+function save(blob, name) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); }
+async function dlStore(s) {
+  save(new Blob([await makeBook(s)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), fname(s));
+}
+async function dlZip() {
+  const z = new JSZip();
+  const list = DATA.stores.filter(s => DATA.by.get(s).some(r => !r.zero));
+  for (const s of list) z.file(fname(s), await makeBook(s));
+  save(await z.generateAsync({ type: 'blob' }), `${DATA.ym ? DATA.ym + '_' : ''}매장별_급여대장_업로드.zip`);
+  toast(`${list.length}개 매장 파일을 묶었습니다`);
+}
+
+// ── 이벤트 ──
+$('#file').addEventListener('change', e => { const f = e.target.files[0]; if (f) loadFile(f); e.target.value = ''; });
+const dz = $('#drop');
+['dragenter', 'dragover'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => dz.addEventListener(ev, e => { e.preventDefault(); dz.classList.remove('over'); }));
+dz.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) loadFile(f); });
+$('#sheetList').addEventListener('change', e => { const s = e.target.dataset.s; if (!s) return; e.target.checked ? USE.add(s) : USE.delete(s); build(true); });
+$('#storeTbl').addEventListener('click', e => {
+  const d = e.target.closest('[data-dl]'); if (d) { dlStore(DATA.stores[+d.dataset.dl]); return; }
+  const tr = e.target.closest('[data-st]'); if (tr) { CUR = DATA.stores[+tr.dataset.st]; renderResult(); renderDetail(); }
+});
+$('#storeChips').addEventListener('click', e => { const b = e.target.closest('[data-st]'); if (b) { CUR = DATA.stores[+b.dataset.st]; renderResult(); renderDetail(); } });
+$('#btnZip').addEventListener('click', () => DATA.stores.length ? dlZip() : toast('고른 내 거래처가 없습니다'));
+$('#mineChips').addEventListener('click', e => {
+  const b = e.target.closest('[data-m]'); if (!b) return;
+  const s = DATA.allStores[+b.dataset.m], cur = new Set(DATA.stores);
+  cur.has(s) ? cur.delete(s) : cur.add(s); setMine([...cur]);
+});
+$('#mineQ').addEventListener('input', renderMine);
+$('#mineAll').addEventListener('click', () => setMine(DATA.allStores));
+$('#mineNone').addEventListener('click', () => setMine([]));
+$('#empFile').addEventListener('change', e => { const fs = [...e.target.files]; if (fs.length) loadEmpFiles(fs); e.target.value = ''; });
+const ez = $('#empDrop');
+['dragenter', 'dragover'].forEach(ev => ez.addEventListener(ev, e => { e.preventDefault(); ez.classList.add('over'); }));
+['dragleave', 'drop'].forEach(ev => ez.addEventListener(ev, e => { e.preventDefault(); ez.classList.remove('over'); }));
+ez.addEventListener('drop', e => { const fs = [...e.dataTransfer.files]; if (fs.length) loadEmpFiles(fs); });
+$('#detTbl').addEventListener('change', e => {
+  const k = e.target.dataset.pk; if (!k) return;
+  const v = e.target.value.trim(); if (v) CODES[k] = v; else delete CODES[k];
+  persistCodes(); build();
+});
+$('#detTbl').addEventListener('keydown', e => {   // Enter → 다음 사람 사원코드 칸
+  if (e.key !== 'Enter' || !e.target.dataset.pk) return;
+  const all = [...document.querySelectorAll('#detTbl input.code')], i = all.indexOf(e.target), k = all[i + 1]?.dataset.pk;
+  e.target.blur(); if (k) setTimeout(() => document.querySelector(`#detTbl input[data-pk="${CSS.escape(k)}"]`)?.focus(), 0);
+});
+$('#btnClearCodes').addEventListener('click', () => { if (!confirm('기억한 사원코드를 모두 지울까요?')) return; CODES = {}; persistCodes(); if (BOOK) build(); toast('사원코드를 지웠습니다'); });
+document.querySelector('.mapgrid#mapPay').parentElement.addEventListener('change', e => {
+  if (e.target.dataset.k) { MAP[e.target.dataset.k] = e.target.value; persist(); if (BOOK) build(); }
+});
+$('#warns').addEventListener('change', e => {   // 미연결 알림 안에서 바로 고르기
+  if (e.target.dataset.k) { MAP[e.target.dataset.k] = e.target.value; persist(); build(); toast(`${e.target.dataset.k} 연결을 정했습니다`); }
+});
+$('#codeSrc').addEventListener('change', e => { CODE_SRC = e.target.value; persist(); if (BOOK) build(); });
+['#wpay', '#wded'].forEach(id => $(id).addEventListener('change', e => {
+  e.stopPropagation();
+  const list = [...new Set(e.target.value.split(/\n/).map(s => s.trim()).filter(Boolean))];
+  if (id === '#wpay') WPAY = list.length ? list : DEF_WPAY.slice(); else WDED = list.length ? list : DEF_WDED.slice();
+  persistItems();
+  if (BOOK) build(); else renderMap();
+  toast(id === '#wpay' ? '위하고 급여항목을 바꿨습니다' : '위하고 공제항목을 바꿨습니다');
+}));
+$('#mergeChk').checked = MERGE;
+$('#mergeChk').addEventListener('change', e => { e.stopPropagation(); MERGE = e.target.checked; persist(); toast(MERGE ? '머리글을 병합해서 만듭니다' : '머리글 병합 없이 만듭니다'); });
+$('#btnReset').addEventListener('click', () => { MAP = { ...DEF_MAP }; CODE_SRC = ''; persist(); if (BOOK) build(); else renderMap(); toast('기본 연결로 되돌렸습니다'); });
+DATA = { payItems: [], dedItems: [] }; renderMap();
+</script>
+<style>@media print{#wm-709{display:none!important}}</style>
+<div id="wm-709" style="position:fixed;bottom:14px;right:16px;z-index:9999;font-family:'Inter','Noto Sans KR',sans-serif;font-size:8.5pt;font-weight:700;color:#948c80;opacity:0.5;letter-spacing:0.5px;pointer-events:none;user-select:none;">709._.b</div>
+</body>
+</html>
